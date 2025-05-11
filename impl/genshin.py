@@ -1,5 +1,11 @@
 from gram_core.base_service import BaseService
-from .client import _AssetsService, icon_getter
+from enkanetwork import Assets as EnkaAssets
+from .client import (
+    _AssetsService,
+    _icon_getter as icon_getter,
+    _AssetsServiceError as AssetsServiceError,
+    _AssetsCouldNotFound as AssetsCouldNotFound,
+)
 from .models.base import BaseWikiModel
 from .models.enums import Game, DataType
 from .models.genshin.character import Character
@@ -7,6 +13,15 @@ from .models.genshin.weapon import Weapon
 from .models.genshin.material import Material
 from .models.genshin.artifact import Artifact
 from .models.genshin.namecard import NameCard
+
+__all__ = (
+    "DEFAULT_EnkaAssets",
+    "AssetsService",
+    "AssetsServiceError",
+    "AssetsCouldNotFound",
+)
+
+DEFAULT_EnkaAssets = EnkaAssets(lang="chs")
 
 
 class _AvatarAssets(_AssetsService[Character]):

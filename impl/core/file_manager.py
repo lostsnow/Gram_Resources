@@ -46,12 +46,7 @@ class FileManager:
     ):
         if data_source:
             data_source = data_source.lower()
-            p = (
-                ASSETS_DATA_RAW_ROOT
-                / game.value
-                / data_type.value
-                / f"{data_source}.{file_type}"
-            )
+            p = ASSETS_DATA_RAW_ROOT / game.value / data_type.value / f"{data_source}.{file_type}"
         else:
             p = ASSETS_DATA_RAW_ROOT / game.value / f"{data_type.value}.{file_type}"
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -66,9 +61,7 @@ class FileManager:
         data: bytes,
     ):
         """保存原始数据文件"""
-        file_path = FileManager.get_raw_file_path(
-            game, data_type, data_source, file_type
-        )
+        file_path = FileManager.get_raw_file_path(game, data_type, data_source, file_type)
         await FileManager.save_file(file_path, data)
         return file_path
 
@@ -79,9 +72,7 @@ class FileManager:
         await FileManager.save_json(file_path, data)
 
     @staticmethod
-    def get_raw_icon_path(
-        url: str, game: "Game", data_type: "DataType", data_source: str
-    ):
+    def get_raw_icon_path(url: str, game: "Game", data_type: "DataType", data_source: str):
         data_source = data_source.lower()
         p = ASSETS_DATA_RAW_ROOT / game.value / data_type.value / data_source
         p.mkdir(parents=True, exist_ok=True)
@@ -95,9 +86,7 @@ class FileManager:
         return file_path.exists(), file_path.relative_to(ASSETS_ROOT)
 
     @staticmethod
-    async def save_raw_icon(
-        url: str, game: "Game", data_type: "DataType", data_source: str, data
-    ):
+    async def save_raw_icon(url: str, game: "Game", data_type: "DataType", data_source: str, data):
         """保存原始数据文件"""
         file_path = FileManager.get_raw_icon_path(url, game, data_type, data_source)
         await FileManager.save_file(file_path, data)

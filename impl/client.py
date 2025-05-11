@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 from ssl import SSLZeroReturnError
-from typing import Optional, List, Dict, TypeVar, Generic, Callable
+from typing import Optional, List, Dict, TypeVar, Generic, Callable, Type
 
 from aiofiles import open as async_open
 from httpx import AsyncClient, HTTPError, Response
@@ -19,20 +19,18 @@ ASSETS_PATH = PROJECT_ROOT.joinpath("resources/assets")
 ASSETS_PATH.mkdir(exist_ok=True, parents=True)
 
 
-def icon_getter(mode: str) -> Callable[["_AssetsService", StrOrInt, StrOrInt], Path]:
-    def wrapper(
-        self: "_AssetsService", target: StrOrInt, second_target: StrOrInt = None
-    ) -> Path:
+def _icon_getter(mode: str) -> Callable[["_AssetsService", StrOrInt, StrOrInt], Path]:
+    def wrapper(self: "_AssetsService", target: StrOrInt, second_target: StrOrInt = None) -> Path:
         return self._get_icon(self.get_target(target, second_target), mode)
 
     return wrapper
 
 
-class AssetsServiceError(Exception):
+class _AssetsServiceError(Exception):
     pass
 
 
-class AssetsCouldNotFound(AssetsServiceError):
+class _AssetsCouldNotFound(_AssetsServiceError):
     def __init__(self, message: str, target: str):
         self.message = message
         self.target = target
@@ -44,7 +42,7 @@ class _AssetsService(Generic[T]):
     BASE_URL = "https://nb-1s.enzonix.com/bucket-1565-2162/"
     game: "Game"
     data_type: "DataType"
-    data_model: "BaseWikiModel"
+    data_model: Type[T]
 
     def __init__(self):
         self.all_items: List[T] = []
@@ -68,9 +66,7 @@ class _AssetsService(Generic[T]):
             return response
         return None
 
-    async def _download(
-        self, url: StrOrURL, path: Path, retry: int = 5
-    ) -> Optional[Path]:
+    async def _download(self, url: StrOrURL, path: Path, retry: int = 5) -> Optional[Path]:
         """从 url 下载图标至 path"""
         if not url:
             return None
@@ -86,9 +82,7 @@ class _AssetsService(Generic[T]):
     def data_url(self) -> str:
         """数据的远程地址"""
         return self.BASE_URL + str(
-            FileManager.get_raw_file_path(self.game, self.data_type).relative_to(
-                ASSETS_ROOT
-            )
+            FileManager.get_raw_file_path(self.game, self.data_type).relative_to(ASSETS_ROOT)
         ).replace("\\", "/")
 
     @property
@@ -145,9 +139,7 @@ class _AssetsService(Generic[T]):
         need_download_fields = []
         for k, v in self.data_model.model_fields.items():
             anno = v.annotation
-            if anno == IconAsset or (
-                hasattr(anno, "__args__") and IconAsset in anno.__args__
-            ):
+            if anno == IconAsset or (hasattr(anno, "__args__") and IconAsset in anno.__args__):
                 need_download_fields.append(k)
         tasks = []
         for item in self.all_items:
@@ -180,9 +172,7 @@ class _AssetsService(Generic[T]):
     def get_name_list(self) -> List[str]:
         return list(self.all_items_name.keys())
 
-    def get_target(
-        self, target: StrOrInt, second_target: StrOrInt = None
-    ) -> Optional[T]:
+    def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[T]:
         data = None
         if isinstance(target, int):
             data = self.get_by_id(target)
@@ -191,7 +181,7 @@ class _AssetsService(Generic[T]):
         if data is None:
             if second_target:
                 return self.get_target(second_target)
-            raise AssetsCouldNotFound("角色素材图标不存在", target)
+            raise _AssetsCouldNotFound("角色素材图标不存在", target)
         return data
 
     def _get_icon(self, model: T, property_name: str) -> Optional[Path]:

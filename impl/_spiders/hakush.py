@@ -30,9 +30,7 @@ class HakushBaseSpider(BaseSpider):
     def get_icon_url(filename: str, ext: str) -> str:
         return f"https://api.hakush.in/gi/UI/{filename}.{ext}"
 
-    async def _parse_content(
-        self, key: str, data: Dict[str, Any]
-    ) -> Optional[BaseWikiModel]:
+    async def _parse_content(self, key: str, data: Dict[str, Any]) -> Optional[BaseWikiModel]:
         try:
             return await self.parse_content(key, data)
         except Exception as e:
