@@ -1,5 +1,4 @@
 import abc
-import traceback
 from typing import List, Dict, Any, Optional
 
 from impl.core._abstract_spider import BaseSpider

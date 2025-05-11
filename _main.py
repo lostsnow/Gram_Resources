@@ -1,4 +1,9 @@
+from impl.config import config
+
 import logging
+
+if config.DEBUG:
+    logging.basicConfig(level=logging.DEBUG)
 
 from persica.context.application import ApplicationContext
 from persica.applicationbuilder import ApplicationBuilder
@@ -12,11 +17,7 @@ app = (
 
 
 async def run():
-    from impl.config import config
     from impl.core._abstract_spider import SpiderManager
-
-    if config.DEBUG:
-        logging.basicConfig(level=logging.DEBUG)
 
     await app.initialize()
     await SpiderManager.start_crawl()

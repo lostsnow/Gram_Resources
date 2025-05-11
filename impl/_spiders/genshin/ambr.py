@@ -6,7 +6,7 @@ from impl.models.genshin.character import Character
 from impl.models.genshin.material import Material
 from impl.models.genshin.namecard import NameCard
 from impl.models.genshin.weapon import Weapon
-from impl.spiders.ambr import AmbrBaseSpider
+from impl._spiders.ambr import AmbrBaseSpider
 
 
 class AmbrCharacterSpider(AmbrBaseSpider):

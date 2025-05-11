@@ -8,7 +8,7 @@ from impl.models.genshin.character import Character
 from impl.models.genshin.enums import Element
 from impl.models.genshin.material import Material
 from impl.models.genshin.weapon import Weapon
-from impl.spiders.hakush import HakushBaseSpider
+from impl._spiders.hakush import HakushBaseSpider
 
 
 class GIElement(StrEnum):

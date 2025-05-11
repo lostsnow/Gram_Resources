@@ -5,7 +5,7 @@ from typing import List, Dict, Any, Optional
 import ujson
 from httpx import Response
 
-from impl.core.abstract_spider import BaseSpider
+from impl.core._abstract_spider import BaseSpider
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import Game, DataType
 from impl.models.genshin.namecard import NameCard
