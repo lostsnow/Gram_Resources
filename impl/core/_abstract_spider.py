@@ -26,7 +26,9 @@ class RequestClient:
                 return response
             else:
                 times = 0
-                raise Exception(f"Request {method} {url} failed with status code {response.status_code}")
+                raise Exception(
+                    f"Request {method} {url} failed with status code {response.status_code}"
+                )
         except Exception as e:
             if times > 0:
                 await sleep(0.3)
@@ -46,28 +48,41 @@ class BaseSpider(AsyncInitializingComponent):
     def default_headers(self) -> Dict[str, str]:
         """默认请求头模板"""
         return {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                          'AppleWebKit/537.36 (KHTML, like Gecko) '
-                          'Chrome/90.0.4430.212 Safari/537.36',
-            'Accept-Encoding': 'gzip, deflate'
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/90.0.4430.212 Safari/537.36",
+            "Accept-Encoding": "gzip, deflate",
         }
 
-    async def _request(self, method: str, url: str, response_type: str = "json", save: bool = True, process_func = None) -> Tuple["Response", Any]:
+    async def _request(
+        self,
+        method: str,
+        url: str,
+        response_type: str = "json",
+        save: bool = True,
+        process_func=None,
+    ) -> Tuple["Response", Any]:
         response = await RequestClient.request(method, url)
         if process_func:
             data = await process_func(response)
         else:
             data = response.content
         if save:
-            await FileManager.save_raw_file(self.game, self.data_type, self.data_source, response_type, data)
+            await FileManager.save_raw_file(
+                self.game, self.data_type, self.data_source, response_type, data
+            )
         return response, data
 
     async def _download_file(self, url: str) -> str:
-        exists, p = FileManager.has_raw_icon(url, self.game, self.data_type, self.data_source)
+        exists, p = FileManager.has_raw_icon(
+            url, self.game, self.data_type, self.data_source
+        )
         if exists:
             return p
         response = await RequestClient.request("GET", url)
-        return await FileManager.save_raw_icon(url, self.game, self.data_type, self.data_source, response.content)
+        return await FileManager.save_raw_icon(
+            url, self.game, self.data_type, self.data_source, response.content
+        )
 
     async def initialize(self):
         if not hasattr(self, "game") or not self.game or not self.data_type:
@@ -95,7 +110,9 @@ class BaseSpider(AsyncInitializingComponent):
 
 class SpiderManager:
     spiders: Dict["Game", Dict["DataType", PriorityQueue]] = {}
-    SPIDER_INDEX_MAP: Dict["Game", Dict["DataType", str]] = {Game.GENSHIN: {DataType.NAMECARD: "name"}}
+    SPIDER_INDEX_MAP: Dict["Game", Dict["DataType", str]] = {
+        Game.GENSHIN: {DataType.NAMECARD: "name"}
+    }
 
     @staticmethod
     async def add_to_spider(game: "Game", data_type: "DataType", clz: "BaseSpider"):
@@ -133,7 +150,10 @@ class SpiderManager:
         :param data_type:
         :return:
         """
-        if game in SpiderManager.SPIDER_INDEX_MAP and data_type in SpiderManager.SPIDER_INDEX_MAP[game]:
+        if (
+            game in SpiderManager.SPIDER_INDEX_MAP
+            and data_type in SpiderManager.SPIDER_INDEX_MAP[game]
+        ):
             return SpiderManager.SPIDER_INDEX_MAP[game][data_type]
         return "id"
 
@@ -154,13 +174,17 @@ class SpiderManager:
                 continue
             for data_type, spiders in data_types.items():
                 data: List[List[Dict]] = []
-                model_index_key = SpiderManager.get_spider_model_index_key(game, data_type)
+                model_index_key = SpiderManager.get_spider_model_index_key(
+                    game, data_type
+                )
                 while not spiders.empty():
                     spider = await spiders.get()
                     try:
                         d = await spider.start_crawl()
                         data.append([i.model_dump() for i in d if i])
-                        print(f"{game} {spider.__class__.__name__} 爬取完成，数据量: {len(d)}")
+                        print(
+                            f"{game} {spider.__class__.__name__} 爬取完成，数据量: {len(d)}"
+                        )
                     except Exception as e:
                         traceback.print_exc()
                         print(f"{game} {spider.__class__.__name__} 报错: {e}")

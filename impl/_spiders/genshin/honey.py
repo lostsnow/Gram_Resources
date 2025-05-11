@@ -21,12 +21,16 @@ class HoneyNameCardSpider(BaseSpider):
 
     @staticmethod
     async def process_request_func(response: "Response") -> bytes:
-        chaos_data = re.findall(r"sortable_data\.push\((.*?)\);\s*sortable_cur_page", response.text)[0]
+        chaos_data = re.findall(
+            r"sortable_data\.push\((.*?)\);\s*sortable_cur_page", response.text
+        )[0]
         json_data = ujson.loads(chaos_data)
         return ujson.dumps(json_data, ensure_ascii=False, indent=4).encode("utf-8")
 
     async def start_crawl(self) -> List[BaseWikiModel]:
-        _, content = await self._request("GET", self.url, process_func=self.process_request_func)
+        _, content = await self._request(
+            "GET", self.url, process_func=self.process_request_func
+        )
         json_data = ujson.loads(content)
         d = []
         tasks = []

@@ -2,7 +2,7 @@ import abc
 import traceback
 from typing import List, Dict, Any, Optional
 
-from impl.core.abstract_spider import BaseSpider
+from impl.core._abstract_spider import BaseSpider
 from impl.models.base import BaseWikiModel
 
 
@@ -31,7 +31,9 @@ class HakushBaseSpider(BaseSpider):
     def get_icon_url(filename: str, ext: str) -> str:
         return f"https://api.hakush.in/gi/UI/{filename}.{ext}"
 
-    async def _parse_content(self, key: str, data: Dict[str, Any]) -> Optional[BaseWikiModel]:
+    async def _parse_content(
+        self, key: str, data: Dict[str, Any]
+    ) -> Optional[BaseWikiModel]:
         try:
             return await self.parse_content(key, data)
         except Exception as e:

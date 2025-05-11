@@ -11,7 +11,7 @@ class Weapon(BaseWikiModel):
     """武器描述"""
 
     icon: Optional[IconAsset] = None
-    """角色图标"""
+    """武器图标"""
     awaken: Optional[IconAsset] = None
     """突破后图标"""
     gacha: Optional[IconAsset] = None

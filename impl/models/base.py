@@ -103,12 +103,14 @@ TimeDeltaField = Annotated[
 
 class IconAssetUrl(APIModel):
     """图片链接"""
+
     url: str
     path: str
 
 
 class IconAsset(APIModel):
     """基础图片"""
+
     jpg: Optional[IconAssetUrl] = None
     webp: Optional[IconAssetUrl] = None
     png: Optional[IconAssetUrl] = None
@@ -136,6 +138,7 @@ class IconAsset(APIModel):
 
 class BaseWikiModel(APIModel):
     """基础模型"""
+
     id: str
     """ ID """
     name: str

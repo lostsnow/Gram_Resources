@@ -1,7 +1,7 @@
 import abc
 from typing import List, Dict, Any, Optional
 
-from impl.core.abstract_spider import BaseSpider
+from impl.core._abstract_spider import BaseSpider
 from impl.models.base import BaseWikiModel
 
 
