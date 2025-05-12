@@ -101,15 +101,15 @@ class AssetsService(BaseService.Dependence):
         若本地不存在，则从网络上下载；若存在，则返回其路径
     """
 
-    avatar: _AvatarAssets
+    avatar: _AvatarAssets = _AvatarAssets
     """角色"""
-    weapon: _WeaponAssets
+    weapon: _WeaponAssets = _WeaponAssets
     """武器"""
-    material: _MaterialAssets
+    material: _MaterialAssets = _MaterialAssets
     """素材"""
-    artifact: _ArtifactAssets
+    artifact: _ArtifactAssets = _ArtifactAssets
     """圣遗物"""
-    namecard: _NameCardAssets
+    namecard: _NameCardAssets = _NameCardAssets
     """名片"""
 
     def __init__(self):
@@ -117,7 +117,7 @@ class AssetsService(BaseService.Dependence):
             lambda x: (not x[0].startswith("_")) and x[1].__name__.endswith("Assets"),
             self.__annotations__.items(),
         ):
-            setattr(self, attr, clz())
+            setattr(self, attr, clz.get_instance())
 
     async def initialize(self):
         for attr, _ in filter(

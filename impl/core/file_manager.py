@@ -38,6 +38,13 @@ class FileManager:
         return ujson.loads(content)
 
     @staticmethod
+    def sync_load_json(file_path: "Path") -> dict:
+        """同步加载JSON文件"""
+        with open(file_path, "r", encoding="utf-8") as file:
+            content = file.read()
+        return ujson.loads(content)
+
+    @staticmethod
     def get_raw_file_path(
         game: "Game",
         data_type: "DataType",

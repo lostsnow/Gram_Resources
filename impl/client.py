@@ -43,11 +43,19 @@ class _AssetsService(Generic[T]):
     game: "Game"
     data_type: "DataType"
     data_model: Type[T]
+    _instance = None
+
+    @classmethod
+    def get_instance(cls):
+        if cls._instance is None:
+            cls._instance = cls()
+        return cls._instance
 
     def __init__(self):
         self.all_items: List[T] = []
         self.all_items_map: Dict[str, T] = {}
         self.all_items_name: Dict[str, T] = {}
+        self.sync_read_metadata()
 
     async def _remote_get(self, url: StrOrURL, retry: int = 5) -> Optional["Response"]:
         for time in range(retry):
@@ -123,17 +131,26 @@ class _AssetsService(Generic[T]):
         await self._download(url, path)
         return path
 
-    async def read_metadata(self):
-        if not self.data_path.exists():
-            datas = await self._remote_get(self.data_url)
-            await FileManager.save_file(self.data_path, datas.content)
-        datas = await FileManager.load_json(self.data_path)
+    def _sync_read_metadata(self, datas):
         self.clear_class_data()
         for data in datas:
             item = self.data_model.model_validate(data)
             self.all_items.append(item)
             self.all_items_map[item.id] = item
             self.all_items_name[item.name] = item
+
+    def sync_read_metadata(self):
+        if not self.data_path.exists():
+            return
+        datas = FileManager.sync_load_json(self.data_path)
+        self._sync_read_metadata(datas)
+
+    async def read_metadata(self):
+        if not self.data_path.exists():
+            datas = await self._remote_get(self.data_url)
+            await FileManager.save_file(self.data_path, datas.content)
+        datas = await FileManager.load_json(self.data_path)
+        self._sync_read_metadata(datas)
 
     async def download_icons(self):
         need_download_fields = []
