@@ -108,7 +108,7 @@ class HakushWeaponSpider(HakushBaseSpider):
             "en_name": data["EN"],
             "rank": data["rank"],
             "weapon_type": data["type"],
-            "description": data["desc"],
+            "description": "",
         }
 
     async def parse_content(self, key: str, data: Dict[str, Any]) -> BaseWikiModel:

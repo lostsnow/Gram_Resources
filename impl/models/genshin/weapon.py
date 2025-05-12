@@ -1,10 +1,45 @@
-from typing import Optional
+from typing import Optional, List
 
-from ..base import BaseWikiModel, IconAsset
-from .enums import WeaponType
+from ..base import BaseWikiModel, IconAsset, APIModel
+from .enums import WeaponType, AttributeType
 
 
-class Weapon(BaseWikiModel):
+class WeaponAttribute(APIModel):
+    """武器词条"""
+
+    type: AttributeType
+    value: str
+
+
+class WeaponAffix(APIModel):
+    """武器技能
+
+    Attributes:
+        name: 技能名
+        description: 技能描述
+
+    """
+
+    name: str
+    description: List[str]
+
+
+class WeaponState(APIModel):
+    level: str
+    ATK: float
+    bonus: Optional[str] = None
+
+
+class WeaponDetail(BaseWikiModel):
+    attribute: Optional[WeaponAttribute] = None
+    affix: Optional[WeaponAffix] = None
+    ascension: List[str] = []
+    story: Optional[str] = None
+    """突破材料"""
+    stats: List[WeaponState] = []
+
+
+class Weapon(WeaponDetail):
     weapon_type: WeaponType
     """武器类型"""
     description: str
