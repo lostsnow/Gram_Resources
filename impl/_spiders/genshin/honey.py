@@ -68,14 +68,15 @@ class HoneyWeaponSpider(BaseSpider):
         weapon_type = WeaponType.convert(get_table_text(1).split(",")[-1].strip())
         name = get_table_text(0)
         rarity = len(table_rows[2].find_all("img"))
-        ascension = [re.findall(r"/(.*)/", tag.attrs["href"])[0] for tag in table_rows[-1].find_all("a")]
+        ascension = [tag.get("alt").strip() for tag in table_rows[-1].find_all("img") if tag.get("alt")]
         if rarity > 2:  # 如果是 3 星及其以上的武器
             attribute = WeaponAttribute(
                 type=AttributeType.convert(tables[2].find("thead").find("tr").find_all("td")[2].text.split(" ")[1]),
                 value=get_table_text(6),
             )
             affix = WeaponAffix(
-                name=get_table_text(7), description=[i.find_all("td")[1].text for i in tables[3].find_all("tr")[1:]]
+                name=get_table_text(7),
+                description=[i.find_all("td")[1].text for i in tables[3].find_all("tr")[1:]],
             )
             description = get_table_text(9)
             if story_table := find_table("quotes"):
@@ -202,7 +203,13 @@ class HoneyWeaponSpider(BaseSpider):
             返回能爬到的所有的 Model 所组成的 List
         """
         data = await self.get_full_data()
-        await FileManager.save_raw_file(self.game, self.data_type, self.data_source, "json", ujson.dumps([i.model_dump() for i in data if i]).encode("utf-8"))
+        await FileManager.save_raw_file(
+            self.game,
+            self.data_type,
+            self.data_source,
+            "json",
+            ujson.dumps([i.model_dump() for i in data if i]).encode("utf-8"),
+        )
         return data
 
 

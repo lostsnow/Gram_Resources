@@ -102,7 +102,9 @@ class BaseSpider(AsyncInitializingComponent):
 
 class SpiderManager:
     spiders: Dict["Game", Dict["DataType", PriorityQueue]] = {}
-    SPIDER_INDEX_MAP: Dict["Game", Dict["DataType", str]] = {Game.GENSHIN: {DataType.WEAPON: "name", DataType.NAMECARD: "name"}}
+    SPIDER_INDEX_MAP: Dict["Game", Dict["DataType", str]] = {
+        Game.GENSHIN: {DataType.WEAPON: "name", DataType.NAMECARD: "name"}
+    }
 
     @staticmethod
     async def add_to_spider(game: "Game", data_type: "DataType", clz: "BaseSpider"):
