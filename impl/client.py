@@ -147,8 +147,8 @@ class _AssetsService(Generic[T]):
         datas = FileManager.sync_load_json(self.data_path)
         self._sync_read_metadata(datas)
 
-    async def read_metadata(self):
-        if not self.data_path.exists():
+    async def read_metadata(self, force: bool):
+        if force or not self.data_path.exists():
             datas = await self._remote_get(self.data_url)
             await FileManager.save_file(self.data_path, datas.content)
         datas = await FileManager.load_json(self.data_path)
@@ -175,10 +175,10 @@ class _AssetsService(Generic[T]):
             await asyncio.gather(*tasks)
             tasks.clear()
 
-    async def initialize(self):
+    async def initialize(self, force):
         """初始化数据"""
         logger.info("正在初始化 %s 素材", self.data_type.value)
-        await self.read_metadata()
+        await self.read_metadata(force)
         await self.download_icons()
 
     def get_by_id(self, cid: StrOrInt) -> Optional[T]:

@@ -143,9 +143,12 @@ class AssetsService(BaseService.Dependence):
         ):
             setattr(self, attr, clz.get_instance())
 
-    async def initialize(self):
+    async def init(self, force):
         for attr, _ in filter(
             lambda x: (not x[0].startswith("_")) and x[1].__name__.endswith("Assets"),
             self.__annotations__.items(),
         ):
-            await getattr(self, attr).initialize()
+            await getattr(self, attr).initialize(force)
+
+    async def initialize(self):
+        await self.init(False)
