@@ -105,3 +105,39 @@ class AttributeType(StrEnum):
             if string == k or string in v or string.upper() == k:
                 return cls[k]
         return None
+
+
+_ASSOCIATION_MAP = {
+    "Other": ["Mainactor", "Ranger", "Fatui"],
+    "Snezhnaya": [],
+    "Sumeru": [],
+    "Inazuma": [],
+    "Liyue": [],
+    "Mondstadt": [],
+    "Fontaine": [],
+    "Natlan": [],
+}
+
+
+class Association(StrEnum):
+    """角色所属地区"""
+
+    Other = "其它"
+    Snezhnaya = "至冬"
+    Sumeru = "须弥"
+    Inazuma = "稻妻"
+    Liyue = "璃月"
+    Mondstadt = "蒙德"
+    Fontaine = "枫丹"
+    Natlan = "纳塔"
+
+    @classmethod
+    def convert(cls, string: str) -> Optional[Self]:
+        string = string.strip()
+        for k, v in _ASSOCIATION_MAP.items():
+            if string == k or string in v:
+                return cls[k]
+            string = string.lower().title()
+            if string == k or string in v:
+                return cls[k]
+        return cls[string]

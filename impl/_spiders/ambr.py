@@ -8,7 +8,7 @@ from impl.models.base import BaseWikiModel
 class AmbrBaseSpider(BaseSpider):
     data_source: str = "ambr"
     file_type: str = "json"
-
+    priority: int = 90
     url = "https://gi.yatta.moe/api/v2/chs/avatar"
 
     async def start_crawl(self) -> List[BaseWikiModel]:

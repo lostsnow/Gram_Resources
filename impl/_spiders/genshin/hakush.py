@@ -60,6 +60,7 @@ class HakushCharacterSpider(HakushBaseSpider):
             "weapon_type": data["weapon"],
             "body_type": "",
             "birthday": {"month": data["birth"][0], "day": data["birth"][1]},
+            "association": "其它",
         }
 
     async def parse_content(self, key: str, data: Dict[str, Any]) -> BaseWikiModel:

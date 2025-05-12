@@ -1,5 +1,9 @@
+from typing import Optional
+
 from gram_core.base_service import BaseService
 from enkanetwork import Assets as EnkaAssets
+
+from utils.typedefs import StrOrInt
 from .client import (
     _AssetsService,
     _icon_getter as icon_getter,
@@ -28,15 +32,25 @@ class _AvatarAssets(_AssetsService[Character]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.CHARACTER
     data_model: "BaseWikiModel" = Character
+    DEFAULT_ID: int = 10000005
+    """默认ID"""
 
-    icon: icon_getter("icon")
+    icon = icon_getter("icon")
     """角色图标"""
-    side: icon_getter("side")
+    side = icon_getter("side")
     """侧视图图标"""
-    gacha: icon_getter("gacha")
+    gacha = icon_getter("gacha")
     """抽卡立绘"""
-    gacha_card: icon_getter("gacha_card")
+    gacha_card = icon_getter("gacha_card")
     """抽卡卡片"""
+
+    def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[NameCard]:
+        """获取目标"""
+        player_id = str(target)
+        if player_id in ("10000005", "10000007"):
+            target = f"{player_id}-anemo"
+            return self.get_by_id(target)
+        return super().get_target(target, second_target)
 
 
 class _WeaponAssets(_AssetsService[Weapon]):
@@ -44,11 +58,11 @@ class _WeaponAssets(_AssetsService[Weapon]):
     data_type: "DataType" = DataType.WEAPON
     data_model: "BaseWikiModel" = Weapon
 
-    icon: icon_getter("icon")
+    icon = icon_getter("icon")
     """武器图标"""
-    awaken: icon_getter("awaken")
+    awaken = icon_getter("awaken")
     """突破后图标"""
-    gacha: icon_getter("gacha")
+    gacha = icon_getter("gacha")
     """抽卡立绘"""
 
 
@@ -57,7 +71,7 @@ class _MaterialAssets(_AssetsService[Material]):
     data_type: "DataType" = DataType.MATERIAL
     data_model: "BaseWikiModel" = Material
 
-    icon: icon_getter("icon")
+    icon = icon_getter("icon")
     """物品图标"""
 
 
@@ -66,17 +80,17 @@ class _ArtifactAssets(_AssetsService):
     data_type: "DataType" = DataType.ARTIFACT
     data_model: "BaseWikiModel" = Artifact
 
-    icon: icon_getter("icon")
+    icon = icon_getter("icon")
     """圣遗物图标"""
-    flower: icon_getter("flower")
+    flower = icon_getter("flower")
     """生之花"""
-    plume: icon_getter("plume")
+    plume = icon_getter("plume")
     """死之羽"""
-    sands: icon_getter("sands")
+    sands = icon_getter("sands")
     """时之沙"""
-    goblet: icon_getter("goblet")
+    goblet = icon_getter("goblet")
     """空之杯"""
-    circlet: icon_getter("circlet")
+    circlet = icon_getter("circlet")
     """理之冠"""
 
 
@@ -84,13 +98,23 @@ class _NameCardAssets(_AssetsService):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.NAMECARD
     data_model: "BaseWikiModel" = NameCard
+    DEFAULT_ID: int = 210189
+    """默认ID"""
 
-    icon: icon_getter("icon")
+    icon = icon_getter("icon")
     """图标"""
-    navbar: icon_getter("navbar")
+    navbar = icon_getter("navbar")
     """好友名片背景"""
-    profile: icon_getter("profile")
+    profile = icon_getter("profile")
     """个人资料名片背景"""
+
+    def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[NameCard]:
+        """获取目标"""
+        if isinstance(target, str):
+            m = self.search_by_name(target)
+            if m:
+                target = m.id
+        return super().get_target(target, second_target)
 
 
 class AssetsService(BaseService.Dependence):

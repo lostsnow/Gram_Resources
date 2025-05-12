@@ -1,7 +1,7 @@
 from typing import Optional
 
 from ..base import BaseWikiModel, IconAsset, Birthday
-from .enums import Element, WeaponType
+from .enums import Element, WeaponType, Association
 
 
 class Character(BaseWikiModel):
@@ -13,6 +13,8 @@ class Character(BaseWikiModel):
     """身体类型"""
     birthday: Birthday
     """生日"""
+    association: Association
+    """角色所属地区"""
 
     icon: Optional[IconAsset] = None
     """角色图标"""

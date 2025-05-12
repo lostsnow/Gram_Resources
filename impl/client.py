@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 from pathlib import Path
 from ssl import SSLZeroReturnError
 from typing import Optional, List, Dict, TypeVar, Generic, Callable, Type
@@ -43,6 +44,7 @@ class _AssetsService(Generic[T]):
     game: "Game"
     data_type: "DataType"
     data_model: Type[T]
+    DEFAULT_ID: int = None
     _instance = None
 
     @classmethod
@@ -186,11 +188,18 @@ class _AssetsService(Generic[T]):
     def get_by_name(self, name: str) -> Optional[T]:
         return self.all_items_name.get(name)
 
+    def search_by_name(self, name: str) -> Optional[T]:
+        return next(filter(lambda item: name in item.name, self.all_items), None)
+
     def get_name_list(self) -> List[str]:
         return list(self.all_items_name.keys())
 
     def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[T]:
         data = None
+        if target == 0 and self.DEFAULT_ID is not None:
+            target = self.DEFAULT_ID
+        with contextlib.suppress(ValueError):
+            target = int(target)
         if isinstance(target, int):
             data = self.get_by_id(target)
         elif isinstance(target, str):

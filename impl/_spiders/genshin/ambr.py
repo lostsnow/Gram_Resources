@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import Game, DataType
+from impl.models.genshin.enums import Association
 from impl.models.genshin.artifact import Artifact
 from impl.models.genshin.character import Character
 from impl.models.genshin.material import Material
@@ -43,6 +44,7 @@ class AmbrCharacterSpider(AmbrBaseSpider):
             "weapon_type": data["weaponType"],
             "body_type": data["bodyType"],
             "birthday": {"month": data["birthday"][0], "day": data["birthday"][1]},
+            "association": Association.convert(data["region"]),
         }
 
     async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
