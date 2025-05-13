@@ -114,7 +114,7 @@ class _AssetsService(Generic[T]):
 
     def _get_icon_path(self, model: "IconAsset") -> Optional[Path]:
         try:
-            file_name = Path(model.path).parts[-2:]
+            file_name = Path(model.path.replace("\\", "/")).parts[-2:]
             return self.base_path / Path(*file_name)
         except ValueError:
             logger.debug("图标路径错误: %s", model)
