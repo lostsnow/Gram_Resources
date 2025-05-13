@@ -33,7 +33,7 @@ class _AvatarAssets(_AssetsService[Character]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.CHARACTER
     data_model: "BaseWikiModel" = Character
-    DEFAULT_ID: int = 10000005
+    DEFAULT_ID: str = "10000007-anemo"
     """默认ID"""
 
     icon = icon_getter("icon")
@@ -47,6 +47,8 @@ class _AvatarAssets(_AssetsService[Character]):
 
     def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[NameCard]:
         """获取目标"""
+        if target == 0:
+            return self.get_by_id(self.DEFAULT_ID)
         player_id = str(target)
         if player_id in ("10000005", "10000007"):
             target = f"{player_id}-anemo"
