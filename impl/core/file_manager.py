@@ -79,6 +79,14 @@ class FileManager:
         await FileManager.save_json(file_path, data)
 
     @staticmethod
+    async def load_data_file(game: "Game", data_type: "DataType", data_source: str = ""):
+        """加载数据文件"""
+        file_path = FileManager.get_raw_file_path(game, data_type, data_source)
+        if not file_path.exists():
+            return None
+        return await FileManager.load_json(file_path)
+
+    @staticmethod
     def get_raw_icon_path(url: str, game: "Game", data_type: "DataType", data_source: str):
         data_source = data_source.lower()
         p = ASSETS_DATA_RAW_ROOT / game.value / data_type.value / data_source

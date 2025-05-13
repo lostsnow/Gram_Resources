@@ -381,3 +381,22 @@ class GenshinDailyMaterialSpider(BaseSpider):
 
     async def start_crawl(self) -> List[BaseWikiModel]:
         pass
+
+
+class GenshinOtherSpider(BaseSpider):
+    __order__ = 10
+    game: "Game" = Game.GENSHIN
+    data_type: "DataType" = DataType.OTHER
+
+    async def initialize(self):
+        if not config.GENSHIN:
+            return
+        print("merge genshin other data")
+        data = {
+            "daily_material": await FileManager.load_data_file(self.game, self.data_type, "daily_material"),
+            "roles_material": await FileManager.load_data_file(self.game, self.data_type, "roles_material"),
+        }
+        await FileManager.save_data_file(self.game, self.data_type, data)
+
+    async def start_crawl(self) -> List[BaseWikiModel]:
+        pass
