@@ -99,7 +99,7 @@ class _NameCardAssets(_AssetsService[NameCard]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.NAMECARD
     data_model: "BaseWikiModel" = NameCard
-    DEFAULT_ID: int = 210189
+    DEFAULT_ID: int = 210242
     """默认ID"""
 
     icon = icon_getter("icon")
