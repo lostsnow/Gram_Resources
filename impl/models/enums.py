@@ -30,6 +30,7 @@ class DataType(str, _enum.Enum):
         MATERIAL (DataType): Represents material data.
         ARTIFACT (DataType): Represents artifact data.
         NAMECARD (DataType): Represents name card data.
+        OTHER (DataType): Represents other types of data.
     """
 
     CHARACTER = "character"
@@ -37,3 +38,4 @@ class DataType(str, _enum.Enum):
     MATERIAL = "material"
     ARTIFACT = "artifact"
     NAMECARD = "namecard"
+    OTHER = "other"

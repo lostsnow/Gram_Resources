@@ -73,9 +73,9 @@ class FileManager:
         return file_path
 
     @staticmethod
-    async def save_data_file(game: "Game", data_type: "DataType", data):
+    async def save_data_file(game: "Game", data_type: "DataType", data, data_source: str = ""):
         """保存数据文件"""
-        file_path = FileManager.get_raw_file_path(game, data_type)
+        file_path = FileManager.get_raw_file_path(game, data_type, data_source)
         await FileManager.save_json(file_path, data)
 
     @staticmethod
