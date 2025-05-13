@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Dict, List
 
 from gram_core.base_service import BaseService
 from enkanetwork import Assets as EnkaAssets
@@ -13,6 +13,7 @@ from .client import (
 from .models.base import BaseWikiModel
 from .models.enums import Game, DataType
 from .models.genshin.character import Character
+from .models.genshin.other import Other
 from .models.genshin.weapon import Weapon
 from .models.genshin.material import Material
 from .models.genshin.artifact import Artifact
@@ -75,7 +76,7 @@ class _MaterialAssets(_AssetsService[Material]):
     """物品图标"""
 
 
-class _ArtifactAssets(_AssetsService):
+class _ArtifactAssets(_AssetsService[Artifact]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.ARTIFACT
     data_model: "BaseWikiModel" = Artifact
@@ -94,7 +95,7 @@ class _ArtifactAssets(_AssetsService):
     """理之冠"""
 
 
-class _NameCardAssets(_AssetsService):
+class _NameCardAssets(_AssetsService[NameCard]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.NAMECARD
     data_model: "BaseWikiModel" = NameCard
@@ -117,6 +118,21 @@ class _NameCardAssets(_AssetsService):
         return super().get_target(target, second_target)
 
 
+class _OtherAssets(_AssetsService[Other]):
+    game: "Game" = Game.GENSHIN
+    data_type = DataType.OTHER
+    data_model = Other
+
+    def _sync_read_metadata(self, datas):
+        self.all_items_map = Other.model_validate(datas)
+
+    def get_roles_material(self) -> Dict[str, List[str]]:
+        return self.all_items_map.roles_material
+
+    def get_daily_material(self) -> Dict[str, List[str]]:
+        return self.all_items_map.daily_material
+
+
 class AssetsService(BaseService.Dependence):
     """asset服务
 
@@ -135,6 +151,8 @@ class AssetsService(BaseService.Dependence):
     """圣遗物"""
     namecard: _NameCardAssets = _NameCardAssets
     """名片"""
+    other: _OtherAssets = _OtherAssets
+    """其他"""
 
     def __init__(self):
         for attr, clz in filter(
