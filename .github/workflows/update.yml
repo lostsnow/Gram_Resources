@@ -1,0 +1,45 @@
+name: Fetch Res
+
+on:
+  workflow_dispatch: ~
+
+jobs:
+  Fetch-Wiki:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@master
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.12
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install uv
+          uv sync --all-extras
+
+      - name: Fetch Remote Files
+        run: |
+          mkdir -p data/raw
+          wget ${{ secrets.PUBLIC_URL }} -O genshin.zip
+          unzip genshin.zip -d data/raw
+          uv run _main.py
+          cd data/raw
+          rm -rf genshin.zip
+          zip -r genshin.zip *
+          cd ../..
+      
+      - name: sync
+        uses: jakejarvis/s3-sync-action@master
+        with:
+          args: --acl public-read --follow-symlinks --delete
+        env:
+          AWS_S3_ENDPOINT: ${{ secrets.AWS_S3_ENDPOINT }}
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          SOURCE_DIR: 'data'
+          DEST_DIR: 'data'
