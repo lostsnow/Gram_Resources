@@ -84,6 +84,7 @@ class _AssetsService(Generic[T]):
         response = await self._remote_get(url, retry)
         if not response:
             return None
+        path.parent.mkdir(parents=True, exist_ok=True)
         async with async_open(path, "wb") as file:
             await file.write(response.content)  # 保存图标
         return path.resolve()
