@@ -130,6 +130,7 @@ class _AssetsService(Generic[T]):
             return None
         if path.exists():
             return path
+        path.parent.mkdir(exist_ok=True, parents=True)
         await self._download(url, path)
         return path
 
