@@ -130,6 +130,7 @@ class Association(StrEnum):
     Mondstadt = "蒙德"
     Fontaine = "枫丹"
     Natlan = "纳塔"
+    Omni_Scourge = "虚渊"
 
     @classmethod
     def convert(cls, string: str) -> Optional[Self]:
