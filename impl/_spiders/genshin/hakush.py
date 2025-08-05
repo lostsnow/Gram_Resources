@@ -1,6 +1,7 @@
 from enum import StrEnum
 from typing import Dict, Any
 
+from impl.assets_utils.logger import logs
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import Game, DataType
 from impl.models.genshin.artifact import Artifact
@@ -74,7 +75,7 @@ class HakushCharacterSpider(HakushBaseSpider):
             try:
                 p = await self._download_file(u)
             except Exception as e:
-                print(f"下载图片失败：", c, e)
+                logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))
@@ -123,7 +124,7 @@ class HakushWeaponSpider(HakushBaseSpider):
             try:
                 p = await self._download_file(u)
             except Exception as e:
-                print(f"下载图片失败：", c, e)
+                logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))
@@ -171,7 +172,7 @@ class HakushMaterialSpider(HakushBaseSpider):
             try:
                 p = await self._download_file(u)
             except Exception as e:
-                print(f"下载图片失败：", c, e)
+                logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))
@@ -230,7 +231,7 @@ class HakushArtifactSpider(HakushBaseSpider):
                     "15012",  # 祭风之人
                     "15013",  # 祭冰之人
                 ]:
-                    print(f"下载图片失败：", c, e)
+                    logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))

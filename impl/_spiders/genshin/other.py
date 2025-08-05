@@ -5,6 +5,7 @@ from typing import List, Dict
 
 import bs4
 
+from impl.assets_utils.logger import logs
 from impl.config import config
 from impl.core._abstract_spider import BaseSpider, RequestClient
 from impl.core.file_manager import FileManager
@@ -246,9 +247,9 @@ class GenshinRoleMaterialSpider(BaseSpider):
     async def initialize(self):
         if not config.GENSHIN:
             return
-        print("Download raw file")
-        await self.download_data_file()
-        print("Download raw file success")
+        logs.info("Download raw file")
+        # await self.download_data_file()
+        logs.info("Download raw file success")
         self.zh_lang = await FileManager.load_json(self.zh_lang_path)
         await self.get_material_data()
 
@@ -374,7 +375,7 @@ class GenshinDailyMaterialSpider(BaseSpider):
     async def initialize(self):
         if not config.GENSHIN:
             return
-        print("parse_honey_impact_source")
+        logs.info("parse_honey_impact_source")
         data = await self._parse_honey_impact_source()
         await self.fix_honey_material_id(data)
         await FileManager.save_data_file(self.game, self.data_type, data.model_dump(), "daily_material")
@@ -391,7 +392,7 @@ class GenshinOtherSpider(BaseSpider):
     async def initialize(self):
         if not config.GENSHIN:
             return
-        print("merge genshin other data")
+        logs.info("merge genshin other data")
         data = {
             "daily_material": await FileManager.load_data_file(self.game, self.data_type, "daily_material"),
             "roles_material": await FileManager.load_data_file(self.game, self.data_type, "roles_material"),

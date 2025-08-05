@@ -1,6 +1,8 @@
 import abc
+import traceback
 from typing import List, Dict, Any, Optional
 
+from impl.assets_utils.logger import logs
 from impl.core._abstract_spider import BaseSpider
 from impl.models.base import BaseWikiModel
 
@@ -34,7 +36,8 @@ class HakushBaseSpider(BaseSpider):
         try:
             return await self.parse_content(key, data)
         except Exception as e:
-            print(f"解析数据失败: {e}")
+            traceback.print_exc()
+            logs.info(f"解析数据失败: {e}")
             return None
 
     @abc.abstractmethod

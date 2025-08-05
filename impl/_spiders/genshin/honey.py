@@ -10,6 +10,7 @@ import ujson
 from bs4 import BeautifulSoup
 from httpx import Response, URL
 
+from impl.assets_utils.logger import logs
 from impl.core._abstract_spider import BaseSpider
 from impl.core.file_manager import FileManager
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
@@ -175,9 +176,9 @@ class HoneyWeaponSpider(BaseSpider):
             try:
                 await queue.put(await self._scrape(u))  # 爬取一条数据，并将其放入队列中
             except NotImplementedError as exc:
-                print("爬取数据出现测试服数据 %s", str(exc))
+                logs.info("爬取数据出现测试服数据 %s", str(exc))
             except Exception as exc:  # pylint: disable=W0703
-                print("爬取数据出现异常 %s", str(exc))
+                logs.info("爬取数据出现异常 %s", str(exc))
             finally:
                 signal.value -= 1  # 信号量减少 1 ，说明该爬虫任务已经完成
 
@@ -268,7 +269,7 @@ class HoneyNameCardSpider(BaseSpider):
             return await self.parse_content(data)
         except Exception as e:
             traceback.print_exc()
-            print(f"解析数据失败: {e}")
+            logs.info(f"解析数据失败: {e}")
             return None
 
     async def parse_content(self, data: Dict) -> BaseWikiModel:
@@ -281,7 +282,7 @@ class HoneyNameCardSpider(BaseSpider):
             try:
                 p = await self._download_file(u)
             except Exception as e:
-                print(f"下载图片失败：", c, e)
+                logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))
