@@ -40,7 +40,7 @@ class _AssetsCouldNotFound(_AssetsServiceError):
 
 class _AssetsService(Generic[T]):
     client: "AsyncClient" = AsyncClient(timeout=60.0)
-    BASE_URL = "https://nb-1s.enzonix.com/bucket-1565-2162/"
+    BASE_URL = "https://s3.tebi.io/paimon/"
     game: "Game"
     data_type: "DataType"
     data_model: Type[T]
