@@ -199,7 +199,7 @@ class _AssetsService(Generic[T]):
         data = None
         if target == 0 and self.DEFAULT_ID is not None:
             target = self.DEFAULT_ID
-        with contextlib.suppress(ValueError):
+        with contextlib.suppress(ValueError, TypeError):
             target = int(target)
         if isinstance(target, int):
             data = self.get_by_id(target)
