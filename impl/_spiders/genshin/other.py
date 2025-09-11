@@ -1,9 +1,6 @@
-import typing
+import traceback
 from functools import partial
-from os import path
-from typing import List, Dict
-
-import bs4
+from typing import List, Dict, Optional
 
 from impl.assets_utils.logger import logs
 from impl.config import config
@@ -11,7 +8,7 @@ from impl.core._abstract_spider import BaseSpider, RequestClient
 from impl.core.file_manager import FileManager
 from impl.models.base import BaseWikiModel
 from impl.models.enums import Game, DataType
-from impl.models.genshin.daily_material import MaterialsData, AreaDailyMaterialsData, DOMAIN_AREA_MAP, DOMAIN_TYPE_MAP
+from impl.models.genshin.daily_material import MaterialsData, AreaDailyMaterialsData, CITY_NAMES
 
 FILE_PATH = "https://gitlab.com/Dimbreath/AnimeGameData/-/raw/master/{PATH}"
 DATA_FILES = """
@@ -19,8 +16,11 @@ ExcelBinOutput/AvatarExcelConfigData.json
 ExcelBinOutput/AvatarPromoteExcelConfigData.json
 ExcelBinOutput/AvatarSkillDepotExcelConfigData.json
 ExcelBinOutput/AvatarSkillExcelConfigData.json
+ExcelBinOutput/DungeonEntryExcelConfigData.json
 ExcelBinOutput/MaterialExcelConfigData.json
 ExcelBinOutput/ProudSkillExcelConfigData.json
+ExcelBinOutput/WeaponExcelConfigData.json
+ExcelBinOutput/WeaponPromoteExcelConfigData.json
 TextMap/TextMapCHS.json
 TextMap/TextMapCHT.json
 TextMap/TextMapDE.json
@@ -105,7 +105,7 @@ class GenshinRoleMaterialSpider(BaseSpider):
 
     def __init__(self):
         super().__init__()
-        save_path = partial(
+        self.save_path = save_path = partial(
             FileManager.get_raw_icon_path, game=self.game, data_type=self.data_type, data_source=self.data_source
         )
         self.avatar_data_path = save_path("AvatarExcelConfigData.json")
@@ -114,11 +114,15 @@ class GenshinRoleMaterialSpider(BaseSpider):
         self.avatar_skill_data_path = save_path("AvatarSkillExcelConfigData.json")
         self.proud_skill_data_path = save_path("ProudSkillExcelConfigData.json")
         self.material_data_path = save_path("MaterialExcelConfigData.json")
-        self.material_data: Dict[str, str] = {}
+        self.weapon_data_path = save_path("WeaponExcelConfigData.json")
+        self.weapon_promote_data_path = save_path("WeaponPromoteExcelConfigData.json")
+
+        self.material_data: Dict[int, str] = {}
         self.zh_lang_path = save_path("TextMap/TextMapCHS.json")
         self.zh_lang = {}
         self.avatar_promote_data: Dict[str, str] = {}
         self.skill_depot_map: Dict[str, int] = {}
+        self.weapon_promote_map: Dict[int, List[int]] = {}
         """
         开发备忘：
 
@@ -129,12 +133,18 @@ class GenshinRoleMaterialSpider(BaseSpider):
         skill_depot_map 是角色 id -> 主天赋 id 的 map
         avatar_skill_data_path 是天赋基础信息，不包含天赋消耗信息，需要进一步通过 proudSkillGroupId 请求
         proud_skill_data_path 是天赋详细信息，包含了素材消耗信息
+        
+        weapon_data_path 是武器数据
+        weapon_promote_data_path 是武器升级数据，里面包含了武器升级所需的素材消耗信息
+        weapon_promote_map 是 promote_id -> 素材id 列表 的 map
 
         material_data_path 是 item 信息
         material_data 是 id -> name 的 map
         zh_lang_path 是中文文本信息
         """
+        self.cost_item_keys = ""
         self.data = {"status": 0, "data": {}}
+        self.data_weapon = {"status": 0, "data": {}}
 
     async def _download_file(self, url: str) -> str:
         response = await RequestClient.request("GET", url)
@@ -153,12 +163,13 @@ class GenshinRoleMaterialSpider(BaseSpider):
             if avatar["featureTagGroupID"] == 10000001:
                 # 未上线角色
                 continue
+            cid = avatar["id"]
             avatar_name = self.zh_lang[str(avatar["nameTextMapHash"])]
             if avatar_name not in ignore_name_list and avatar_name not in name_list:
                 name_list.append(avatar_name)
                 self.avatar_promote_data[avatar_name] = avatar["avatarPromoteId"]
                 self.skill_depot_map[avatar_name] = avatar["skillDepotId"]
-                self.data["data"][avatar_name] = {}
+                self.data["data"][avatar_name] = {"id": cid, "name": avatar_name}
         return name_list
 
     async def load_material_data(self):
@@ -169,13 +180,61 @@ class GenshinRoleMaterialSpider(BaseSpider):
             except KeyError:
                 pass
 
+    async def load_weapon_promote_data(self):
+        _weapon_promote_data = await FileManager.load_json(self.weapon_promote_data_path)
+        for weapon in _weapon_promote_data:
+            pid = weapon["weaponPromoteId"]
+            cos = weapon.get(self.cost_item_keys, [])
+            if len(cos) != 3:
+                continue
+            for i in cos:
+                if not i:
+                    continue
+                t_list = self.weapon_promote_map.get(pid, [])
+                if i["id"] not in t_list:
+                    t_list.append(i["id"])
+                    self.weapon_promote_map[pid] = t_list
+        return self.weapon_promote_map
+
+    async def dump_weapon_promote_data(self):
+        weapon_data = await FileManager.load_json(self.weapon_data_path)
+        for weapon in weapon_data:
+            wid = weapon["id"]
+            name = self.zh_lang.get(str(weapon["nameTextMapHash"]), "")
+            if "test" in name or "测试" in name:
+                continue
+            pid = weapon["weaponPromoteId"]
+            if pid not in self.weapon_promote_map:
+                continue
+            _weapon_data = {
+                "id": wid,
+                "name": name,
+                "materials": [self.material_data[i] for i in self.weapon_promote_map[pid] if i],
+            }
+            self.data_weapon["data"][str(wid)] = _weapon_data
+
+    @staticmethod
+    def guess_cost_items_key(avatar_promote_data: List[Dict]) -> Optional[str]:
+        for data in avatar_promote_data:
+            for k, v in data.items():
+                if not isinstance(v, list):
+                    continue
+                for v1 in v:
+                    if "count" in v1.keys():
+                        return k
+        return None
+
     async def get_up_data(self):
         _avatar_promote_data = await FileManager.load_json(self.avatar_promote_data_path)
         data_map: Dict[str, Dict] = {}
         data_material_map: Dict[str, List[str]] = {}
+        self.cost_item_keys = self.guess_cost_items_key(_avatar_promote_data)
+        if not self.cost_item_keys:
+            logs.error("无法识别角色升级数据中的素材消耗字段")
+            return
         for avatar in _avatar_promote_data:
             pid = avatar["avatarPromoteId"]
-            cos = avatar.get("costItems", [])
+            cos = avatar.get(self.cost_item_keys, [])
             if len(cos) != 4:
                 continue
             for i in cos[2:]:
@@ -190,11 +249,10 @@ class GenshinRoleMaterialSpider(BaseSpider):
                 continue
             data_map[avatar["avatarPromoteId"]] = avatar
             data_material_map.get(pid, []).sort()
-        for avatar in self.avatar_promote_data.keys():
-            pid = self.avatar_promote_data[avatar]
+        for avatar, pid in self.avatar_promote_data.items():
             t = data_map[pid]
-            self.data["data"][avatar]["ascension_materials"] = self.material_data[t["costItems"][0]["id"]]
-            self.data["data"][avatar]["level_up_materials"] = self.material_data[t["costItems"][1]["id"]]
+            self.data["data"][avatar]["ascension_materials"] = self.material_data[t[self.cost_item_keys][0]["id"]]
+            self.data["data"][avatar]["level_up_materials"] = self.material_data[t[self.cost_item_keys][1]["id"]]
             self.data["data"][avatar]["materials"] = [self.material_data[i] for i in data_material_map[pid] if i]
 
     async def load_avatar_skill_depot_data(self) -> Dict[int, int]:
@@ -222,7 +280,7 @@ class GenshinRoleMaterialSpider(BaseSpider):
             if _avatar["level"] != 10:
                 continue
             key = _avatar["proudSkillGroupId"]
-            cos = _avatar["costItems"]
+            cos = _avatar[self.cost_item_keys]
             value = [self.material_data[cos[0]["id"]][1:3], self.material_data[cos[2]["id"]]]
             proud_skill_map[key] = value
         return proud_skill_map
@@ -231,8 +289,7 @@ class GenshinRoleMaterialSpider(BaseSpider):
         energy_skill_map = await self.load_avatar_skill_depot_data()
         avatar_skill_map = await self.load_avatar_skill_data()
         proud_skill_map = await self.load_proud_skill_data()
-        for avatar in self.skill_depot_map.keys():
-            depot_id = self.skill_depot_map[avatar]
+        for avatar, depot_id in self.skill_depot_map.items():
             skill_id = energy_skill_map[depot_id]
             skill_group_id = avatar_skill_map[skill_id]
             self.data["data"][avatar]["talent"] = proud_skill_map[skill_group_id]
@@ -244,148 +301,157 @@ class GenshinRoleMaterialSpider(BaseSpider):
         await self.get_skill_data()
         await FileManager.save_data_file(self.game, self.data_type, self.data, "roles_material")
 
+    async def get_material_data_weapon(self):
+        await self.load_weapon_promote_data()
+        await self.dump_weapon_promote_data()
+        await FileManager.save_data_file(self.game, self.data_type, self.data_weapon, "weapons_material")
+
     async def initialize(self):
         if not config.GENSHIN:
             return
-        logs.info("Download raw file")
-        # await self.download_data_file()
-        logs.info("Download raw file success")
+        if config.GENSHIN_EXCEL_DATA:
+            logs.info("Download raw file")
+            await self.download_data_file()
+            logs.info("Download raw file success")
         self.zh_lang = await FileManager.load_json(self.zh_lang_path)
-        await self.get_material_data()
+        try:
+            await self.get_material_data()
+            await self.get_material_data_weapon()
+        except Exception as e:
+            traceback.print_exc()
+            raise e
 
     async def start_crawl(self) -> List[BaseWikiModel]:
         pass
 
 
-class GenshinDailyMaterialSpider(BaseSpider):
+class GenshinDailyMaterialSpider(GenshinRoleMaterialSpider):
+    __order__ = 10
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.OTHER
     data_source: str = "data"
 
     def __init__(self):
-        self.material_ids_map: Dict[str, str] = {}
+        super().__init__()
+        self.city_names = CITY_NAMES
+        self.dungeon_entry_data_path = self.save_path("DungeonEntryExcelConfigData.json")
 
-    async def get_honey_impact_material_name(self, material_id: str) -> str:
-        url = f"https://gensh.honeyhunterworld.com/tooltip.php?id={material_id}&lang=chs"
-        response = await RequestClient.request("POST", url)
-        soup = bs4.BeautifulSoup(response.content, "lxml")
-        name = soup.find("h2").text.strip()
-        self.material_ids_map[material_id] = name
-        return name
-
-    @staticmethod
-    async def _parse_honey_impact_source() -> MaterialsData:
+        self.dungeon_entry_data_avatar = []
+        self.dungeon_entry_data_weapon = []
+        self.material_avatar_map: Dict[int, str] = {}
+        self.material_weapon_map: Dict[int, str] = {}
         """
-        ## honeyimpact 的源码格式:
-        ```html
-        <div class="calendar_day_wrap">
-          <!-- span 里记录秘境和对应突破素材 -->
-          <span class="item_secondary_title">
-            <a href="">秘境名<img src="" /></a>
-            <div data-days="0"> <!-- data-days 记录星期几 -->
-              <a href=""><img src="" /></a> <!-- 「某某」的教导，ID 在 href 中 -->
-              <a href=""><img src="" /></a> <!-- 「某某」的指引，ID 在 href 中 -->
-              <a href=""><img src="" /></a> <!-- 「某某」的哲学，ID 在 href 中 -->
-            </div>
-            <div data-days="1"><!-- 同上，但是星期二 --></div>
-            <div data-days="2"><!-- 同上，但是星期三 --></div>
-            <div data-days="3"><!-- 同上，但是星期四 --></div>
-            <div data-days="4"><!-- 同上，但是星期五 --></div>
-            <div data-days="5"><!-- 同上，但是星期六 --></div>
-            <div data-days="6"><!-- 同上，但是星期日 --></div>
-          <span>
-          <!-- 这里开始是该秘境下所有可以刷的角色或武器的详细信息 -->
-          <!-- 注意这个 a 和上面的 span 在 DOM 中是同级的 -->
-          <a href="">
-            <!-- data-days 储存可以刷素材的星期几，如 146 指的是 周二/周五/周日 -->
-            <div data-assign="char_编号" data-days="146" class="calendar_pic_wrap">
-              <img src="" /> <!-- Item ID 在此 -->
-              <span> 角色名 </span> <!-- 角色名周围的空格是切实存在的 -->
-            </div>
-            <!-- 以此类推，该国家所有角色都会被列出 -->
-          </a>
-          <!-- 炼武秘境格式和精通秘境一样，也是先 span 后 a，会把所有素材都列出来 -->
-        </div>
-        ```
-        """
-        response = await RequestClient.request("GET", "https://gensh.honeyhunterworld.com/?lang=CHS")
-        calendar = bs4.BeautifulSoup(response.text, "lxml").select_one(".calendar_day_wrap")
-        if calendar is None:
-            return MaterialsData()  # 多半是格式错误或者网页数据有误
-        everyday_materials: List[Dict[str, "AreaDailyMaterialsData"]] = [{} for _ in range(7)]
-        current_country: str = ""
-        for element in calendar.find_all(recursive=False):
-            element: bs4.Tag
-            if element.name == "span":  # 找到代表秘境的 span
-                domain_name = next(iter(element)).text  # 第一个孩子节点的 text
-                current_country = DOMAIN_AREA_MAP[domain_name]  # 后续处理 a 列表也会用到这个 current_country
-                materials_type = f"{DOMAIN_TYPE_MAP[domain_name]}_materials"
-                for div in element.find_all("div", recursive=False):  # 7 个 div 对应的是一周中的每一天
-                    div: bs4.Tag
-                    weekday = int(div.attrs["data-days"])  # data-days 是一周中的第几天（周一 0，周日 6）
-                    if current_country not in everyday_materials[weekday]:
-                        everyday_materials[weekday][current_country] = AreaDailyMaterialsData()
-                    materials: List[str] = getattr(everyday_materials[weekday][current_country], materials_type)
-                    for a in div.find_all("a", recursive=False):  # 当天能刷的所有素材在 a 列表中
-                        a: bs4.Tag
-                        href = a.attrs["href"]  # 素材 ID 在 href 中
-                        honey_url = path.dirname(href).removeprefix("/")
-                        materials.append(honey_url)
-            if element.name == "a":
-                # country_name 是从上面的 span 继承下来的，下面的 item 对应的是角色或者武器
-                # element 的第一个 child，也就是 div.calendar_pic_wrap
-                calendar_pic_wrap = typing.cast(bs4.Tag, next(iter(element)))  # element 的第一个孩子
-                item_name_span = calendar_pic_wrap.select_one("span")
-                if item_name_span is None or item_name_span.text.strip() == "旅行者":
-                    continue  # 因为旅行者的天赋计算比较复杂，不做旅行者的天赋计算
-                # data-assign 的数字就是 Item ID
-                data_assign = calendar_pic_wrap.attrs["data-assign"]
-                item_is_weapon = data_assign.startswith("weapon_")
-                item_id = "".join(filter(str.isdigit, data_assign))
-                for weekday in map(int, calendar_pic_wrap.attrs["data-days"]):  # data-days 中存的是星期几可以刷素材
-                    ascendable_items = everyday_materials[weekday][current_country]
-                    ascendable_items = ascendable_items.weapon if item_is_weapon else ascendable_items.avatar
-                    ascendable_items.append(item_id)
-        return MaterialsData.model_validate(everyday_materials)
+        开发备忘：
 
-    async def fix_honey_material_id(self, data: MaterialsData):
-        material_ids = []
-        for weekday in data.root:
-            for country, area_data in weekday.items():
-                for i in range(2):
-                    if i == 0:
-                        materials = area_data.avatar_materials
-                    else:
-                        materials = area_data.weapon_materials
-                    material_ids.extend(materials)
-        material_ids_only = list(set(material_ids))
-        tasks = [self.get_honey_impact_material_name(i) for i in material_ids_only]
-        await self.gather_tasks(tasks)
-        for weekday in data.root:
-            for country, area_data in weekday.items():
-                for i in range(2):
-                    if i == 0:
-                        materials = area_data.avatar_materials
-                    else:
-                        materials = area_data.weapon_materials
-                    new_data = [self.material_ids_map.get(i, i) for i in materials]
-                    materials.clear()
-                    materials.extend(new_data)
+        dungeon_entry_data_path 是秘境数据
+          type DUNGEN_ENTRY_TYPE_AVATAR_TALENT 为 角色天赋素材
+          type DUNGEN_ENTRY_TYPE_WEAPON_PROMOTE 为 武器突破素材
+        dungeon_entry_data_avatar 是角色天赋素材秘境数据列表
+        dungeon_entry_data_weapon 是武器突破素材秘境数据列表
+
+        material_avatar_map 是 角色id -> 素材名称 的 map
+        material_weapon_map 是 武器id -> 素材名称 的 map
+        """
+        self.data: "MaterialsData"
+
+    def init_base_data(self):
+        def _get_base_data():
+            return {
+                "avatar_materials": [],
+                "avatar": [],
+                "weapon_materials": [],
+                "weapon": [],
+            }
+
+        self.data = MaterialsData.model_validate(
+            [{city: _get_base_data() for city in self.city_names} for _ in range(7)]
+        )
+
+    async def load_dungeon_entry_data(self):
+        _dungeon_entry_data = await FileManager.load_json(self.dungeon_entry_data_path)
+        for dungeon in _dungeon_entry_data:
+            if dungeon["type"] == "DUNGEN_ENTRY_TYPE_AVATAR_TALENT":
+                self.dungeon_entry_data_avatar.append(dungeon)
+            elif dungeon["type"] == "DUNGEN_ENTRY_TYPE_WEAPON_PROMOTE":
+                self.dungeon_entry_data_weapon.append(dungeon)
+        if len(self.dungeon_entry_data_avatar) != len(self.city_names):
+            logs.warning("角色天赋素材秘境数据异常，数量不匹配")
+        if len(self.dungeon_entry_data_weapon) != len(self.city_names):
+            logs.warning("武器突破素材秘境数据异常，数量不匹配")
+
+    async def dump_dungeon_entry_data(self):
+        for data, key in [
+            (self.dungeon_entry_data_avatar, "avatar_materials"),
+            (self.dungeon_entry_data_weapon, "weapon_materials"),
+        ]:
+            for idx, dungeon in enumerate(data):
+                city = self.city_names[idx]
+                materials_weeks = (
+                    dungeon["descriptionCycleRewardList"][:-1] * 2 + dungeon["descriptionCycleRewardList"][-1:]
+                )
+                if len(materials_weeks) != 7:
+                    logs.warning("秘境数据异常，数据长度不匹配 id=%s", dungeon["id"])
+                    continue
+                for week, materials in enumerate(materials_weeks):
+                    materials_names = [self.material_data[i] for i in materials]
+                    setattr(self.data[week][city], key, materials_names)
+
+    async def load_material_map(self):
+        roles_material = (await FileManager.load_data_file(self.game, self.data_type, "roles_material"))["data"]
+        for v in roles_material.values():
+            if not v["talent"]:
+                continue
+            self.material_avatar_map[v["id"]] = v["talent"][0]
+        weapons_material = (await FileManager.load_data_file(self.game, self.data_type, "weapons_material"))["data"]
+        for v in weapons_material.values():
+            if not v["materials"]:
+                continue
+            self.material_weapon_map[v["id"]] = v["materials"][0]
+
+    async def dump_material_map(self):
+        for week in range(7):
+            for city in self.city_names:
+                area_data: "AreaDailyMaterialsData" = self.data[week][city]
+                avatar_material_name = set([i[1:3] for i in area_data.avatar_materials])
+                for material in avatar_material_name:
+                    for mid, mname in self.material_avatar_map.items():
+                        if mname == material:
+                            if mid not in area_data.avatar:
+                                area_data.avatar.append(str(mid))
+                for material in area_data.weapon_materials:
+                    for mid, mname in self.material_weapon_map.items():
+                        if mname == material:
+                            if mid not in area_data.weapon:
+                                area_data.weapon.append(str(mid))
+                area_data.avatar.sort()
+                area_data.weapon.sort()
+
+    async def get_material_data(self):
+        self.init_base_data()
+        await self.load_dungeon_entry_data()
+        await self.load_material_data()
+        await self.dump_dungeon_entry_data()
+        await self.load_material_map()
+        await self.dump_material_map()
+        await FileManager.save_data_file(self.game, self.data_type, self.data.model_dump(), "daily_material")
 
     async def initialize(self):
         if not config.GENSHIN:
             return
+        self.zh_lang = await FileManager.load_json(self.zh_lang_path)
         logs.info("parse_honey_impact_source")
-        data = await self._parse_honey_impact_source()
-        await self.fix_honey_material_id(data)
-        await FileManager.save_data_file(self.game, self.data_type, data.model_dump(), "daily_material")
+        try:
+            await self.get_material_data()
+        except Exception as e:
+            traceback.print_exc()
+            raise e
 
     async def start_crawl(self) -> List[BaseWikiModel]:
         pass
 
 
 class GenshinOtherSpider(BaseSpider):
-    __order__ = 10
+    __order__ = 20
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.OTHER
 
@@ -396,6 +462,7 @@ class GenshinOtherSpider(BaseSpider):
         data = {
             "daily_material": await FileManager.load_data_file(self.game, self.data_type, "daily_material"),
             "roles_material": await FileManager.load_data_file(self.game, self.data_type, "roles_material"),
+            "weapons_material": await FileManager.load_data_file(self.game, self.data_type, "weapons_material"),
         }
         await FileManager.save_data_file(self.game, self.data_type, data)
 

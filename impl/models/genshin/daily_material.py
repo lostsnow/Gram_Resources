@@ -2,30 +2,7 @@ from typing import Optional, List, Dict
 
 from pydantic import BaseModel, RootModel
 
-# fmt: off
-# 章节顺序、国家（区域）名是从《足迹》 PV 中取的
-DOMAINS = [
-    "忘却之峡",      # 蒙德精通秘境
-    "太山府",        # 璃月精通秘境
-    "菫色之庭",      # 稻妻精通秘境
-    "昏识塔",        # 须弥精通秘境
-    "苍白的遗荣",    # 枫丹精通秘境
-    "蕴火的幽墟",    # 纳塔精通秘境
-    "",              # 至东精通秘境
-    "",              # 坎瑞亚精通秘境
-    "塞西莉亚苗圃",  # 蒙德炼武秘境
-    "震雷连山密宫",  # 璃月炼武秘境
-    "砂流之庭",      # 稻妻炼武秘境
-    "有顶塔",        # 须弥炼武秘境
-    "深潮的余响",    # 枫丹炼武秘境
-    "深古瞭望所",    # 纳塔炼武秘境
-    "",              # 至东炼武秘境
-    "",              # 坎瑞亚炼武秘境
-]
-# fmt: on
-DOMAIN_AREA_MAP = dict(zip(DOMAINS, ["蒙德", "璃月", "稻妻", "须弥", "枫丹", "纳塔", "至冬", "坎瑞亚"] * 2))
-# 此处 avatar 和 weapon 需要分别对应 AreaDailyMaterialsData 中的两个 *_materials 字段，具体逻辑见 _parse_honey_impact_source
-DOMAIN_TYPE_MAP = dict(zip(DOMAINS, len(DOMAINS) // 2 * ["avatar"] + len(DOMAINS) // 2 * ["weapon"]))
+CITY_NAMES = ["蒙德", "璃月", "稻妻", "须弥", "枫丹", "纳塔", "挪德卡莱"]
 
 
 class AreaDailyMaterialsData(BaseModel):
@@ -82,6 +59,11 @@ class MaterialsData(RootModel):
     root: Optional[List[Dict[str, "AreaDailyMaterialsData"]]] = None
 
     def weekday(self, weekday: int) -> Dict[str, "AreaDailyMaterialsData"]:
+        if self.root is None:
+            return {}
+        return self.root[weekday]
+
+    def __getitem__(self, weekday: int):
         if self.root is None:
             return {}
         return self.root[weekday]

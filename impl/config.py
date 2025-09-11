@@ -9,6 +9,7 @@ class SpiderSettings(BaseSettings):
     DEBUG: bool = False
 
     GENSHIN: bool = True
+    GENSHIN_EXCEL_DATA: bool = True
     STARRAIL: bool = True
     ZZZ: bool = True
     WW: bool = True
