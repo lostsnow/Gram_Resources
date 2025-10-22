@@ -156,7 +156,7 @@ class GenshinRoleMaterialSpider(BaseSpider):
         await self.gather_tasks(tasks)
 
     async def get_name_list(self):
-        ignore_name_list = ["旅行者"]
+        ignore_name_list = ["旅行者", "奇偶·男性", "奇偶·女性"]
         name_list = []
         avatar_data = await FileManager.load_json(self.avatar_data_path)
         for avatar in avatar_data:
@@ -251,6 +251,8 @@ class GenshinRoleMaterialSpider(BaseSpider):
             data_material_map.get(pid, []).sort()
         for avatar, pid in self.avatar_promote_data.items():
             t = data_map[pid]
+            if "奇偶" in avatar:
+                continue
             self.data["data"][avatar]["ascension_materials"] = self.material_data[t[self.cost_item_keys][0]["id"]]
             self.data["data"][avatar]["level_up_materials"] = self.material_data[t[self.cost_item_keys][1]["id"]]
             self.data["data"][avatar]["materials"] = [self.material_data[i] for i in data_material_map[pid] if i]
@@ -290,6 +292,8 @@ class GenshinRoleMaterialSpider(BaseSpider):
         avatar_skill_map = await self.load_avatar_skill_data()
         proud_skill_map = await self.load_proud_skill_data()
         for avatar, depot_id in self.skill_depot_map.items():
+            if "奇偶" in avatar:
+                continue
             skill_id = energy_skill_map[depot_id]
             skill_group_id = avatar_skill_map[skill_id]
             self.data["data"][avatar]["talent"] = proud_skill_map[skill_group_id]

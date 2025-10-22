@@ -52,6 +52,9 @@ class AmbrCharacterSpider(AmbrBaseSpider):
     async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
         c_data = await self.get_character_data(data)
         game_name = self.get_game_name(data["icon"])
+        if "element" not in c_data or c_data["element"] is None:
+            logs.info(f"ambr 跳过异常角色：{c_data}")
+            return None
         c = Character.model_validate(c_data)
         # 图片
         game_name_map = self.game_name_map(game_name)

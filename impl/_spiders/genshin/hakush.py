@@ -67,6 +67,9 @@ class HakushCharacterSpider(HakushBaseSpider):
     async def parse_content(self, key: str, data: Dict[str, Any]) -> BaseWikiModel:
         c_data = await self.get_character_data(key, data)
         game_name = self.get_game_name(data["icon"])
+        if "rank" not in c_data or c_data["rank"] is None:
+            logs.info(f"hakush 跳过异常角色：{c_data}")
+            return None
         c = Character.model_validate(c_data)
         # 图片
         game_name_map = self.game_name_map(game_name)
