@@ -50,7 +50,7 @@ class _AvatarAssets(_AssetsService[Character]):
         if target == 0:
             return self.get_by_id(self.DEFAULT_ID)
         player_id = str(target)
-        if player_id in ("10000005", "10000007"):
+        if player_id in ("10000005", "10000007", "10000117", "10000118"):
             target = f"{player_id}-anemo"
             return self.get_by_id(target)
         return super().get_target(target, second_target)

@@ -1,6 +1,6 @@
 import abc
 import traceback
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 
 from impl.assets_utils.logger import logs
 from impl.core._abstract_spider import BaseSpider
@@ -22,26 +22,26 @@ class AmbrBaseSpider(BaseSpider):
             tasks.append(self._parse_content(i))
             if len(tasks) > 10:
                 t = await self.gather_tasks(tasks)
-                d.extend([j for j in t if j])
+                d.extend([j for sublist in t for j in sublist if j])
         if tasks:
             t = await self.gather_tasks(tasks)
-            d.extend([j for j in t if j])
+            d.extend([j for sublist in t for j in sublist if j])
         return d
 
     @staticmethod
     def get_icon_url(filename: str, ext: str) -> str:
         return f"https://gi.yatta.moe/assets/UI/{filename}.{ext}"
 
-    async def _parse_content(self, data: Dict[str, Any]) -> Optional[BaseWikiModel]:
+    async def _parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         try:
             return await self.parse_content(data)
         except Exception as e:
             traceback.print_exc()
             logs.info(f"解析数据失败: {e}")
-            return None
+            return []
 
     @abc.abstractmethod
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         """
         解析数据
         :param data:

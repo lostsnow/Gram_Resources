@@ -3,7 +3,7 @@ from typing import Dict, Any
 from impl.assets_utils.logger import logs
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import Game, DataType
-from impl.models.genshin.enums import Association
+from impl.models.genshin.enums import Association, Element
 from impl.models.genshin.artifact import Artifact
 from impl.models.genshin.character import Character
 from impl.models.genshin.material import Material
@@ -49,12 +49,25 @@ class AmbrCharacterSpider(AmbrBaseSpider):
             "association": Association.convert(data["region"]),
         }
 
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         c_data = await self.get_character_data(data)
         game_name = self.get_game_name(data["icon"])
-        if "element" not in c_data or c_data["element"] is None:
+        if c_data["id"] in {10000117, 10000118}:
+            c_list = []
+            for ele in list(Element):
+                c_data_copy = c_data.copy()
+                ele_lower = ele.name.lower()
+                c_data_copy["id"] = f"{c_data['id']}-{ele_lower}"
+                c_data_copy["element"] = ele.value
+                c_list.append(await self.parse_content_single(c_data_copy, game_name))
+            return c_list
+        elif "element" not in c_data or c_data["element"] is None:
             logs.info(f"ambr 跳过异常角色：{c_data}")
-            return None
+            return []
+        c = await self.parse_content_single(c_data, game_name)
+        return [c]
+
+    async def parse_content_single(self, c_data: dict[str, Any], game_name: str) -> Character:
         c = Character.model_validate(c_data)
         # 图片
         game_name_map = self.game_name_map(game_name)
@@ -101,7 +114,7 @@ class AmbrWeaponSpider(AmbrBaseSpider):
             "description": "",
         }
 
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         c_data = await self.get_character_data(data)
         game_name = self.get_game_name(data["icon"])
         c = Weapon.model_validate(c_data)
@@ -118,7 +131,7 @@ class AmbrWeaponSpider(AmbrBaseSpider):
             j = IconAssetUrl(url=u, path=str(p))
             setattr(i, v[1], j)
             setattr(c, k, i)
-        return c
+        return [c]
 
 
 class AmbrMaterialSpider(AmbrBaseSpider):
@@ -143,7 +156,7 @@ class AmbrMaterialSpider(AmbrBaseSpider):
             "material_type": "",
         }
 
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         c_data = await self.get_character_data(data)
         c = Material.model_validate(c_data)
         # 图片
@@ -159,7 +172,7 @@ class AmbrMaterialSpider(AmbrBaseSpider):
             j = IconAssetUrl(url=u, path=str(p))
             setattr(i, v[1], j)
             setattr(c, k, i)
-        return c
+        return [c]
 
 
 class AmbrArtifactSpider(AmbrBaseSpider):
@@ -192,7 +205,7 @@ class AmbrArtifactSpider(AmbrBaseSpider):
     def get_icon_url(filename: str, ext: str) -> str:
         return f"https://gi.yatta.moe/assets/UI/reliquary/{filename}.{ext}"
 
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         c_data = await self.get_character_data(data)
         c = Artifact.model_validate(c_data)
         # 图片
@@ -216,7 +229,7 @@ class AmbrArtifactSpider(AmbrBaseSpider):
             j = IconAssetUrl(url=u, path=str(p))
             setattr(i, v[1], j)
             setattr(c, k, i)
-        return c
+        return [c]
 
 
 class AmbrNameCardSpider(AmbrBaseSpider):
@@ -248,7 +261,7 @@ class AmbrNameCardSpider(AmbrBaseSpider):
     def get_icon_url(filename: str, ext: str) -> str:
         return f"https://gi.yatta.moe/assets/UI/namecard/{filename}.{ext}"
 
-    async def parse_content(self, data: Dict[str, Any]) -> BaseWikiModel:
+    async def parse_content(self, data: Dict[str, Any]) -> list[BaseWikiModel]:
         c_data = await self.get_character_data(data)
         c = NameCard.model_validate(c_data)
         # 图片
@@ -264,4 +277,4 @@ class AmbrNameCardSpider(AmbrBaseSpider):
             j = IconAssetUrl(url=u, path=str(p))
             setattr(i, v[1], j)
             setattr(c, k, i)
-        return c
+        return [c]
