@@ -38,4 +38,5 @@ class DataType(str, _enum.Enum):
     MATERIAL = "material"
     ARTIFACT = "artifact"
     NAMECARD = "namecard"
+    BEYOND_ITEM = "beyond_item"
     OTHER = "other"

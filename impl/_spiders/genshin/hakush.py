@@ -5,6 +5,7 @@ from impl.assets_utils.logger import logs
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import Game, DataType
 from impl.models.genshin.artifact import Artifact
+from impl.models.genshin.beyond_item import BeyondItem
 from impl.models.genshin.character import Character
 from impl.models.genshin.enums import Element
 from impl.models.genshin.material import Material
@@ -237,6 +238,55 @@ class HakushArtifactSpider(HakushBaseSpider):
                     "15013",  # 祭冰之人
                 ]:
                     logs.info(f"下载图片失败：{c} {e}")
+                continue
+            i = IconAsset()
+            j = IconAssetUrl(url=u, path=str(p))
+            setattr(i, v[1], j)
+            setattr(c, k, i)
+        return c
+
+
+class HakushBeyondItemSpider(HakushBaseSpider):
+    game: "Game" = Game.GENSHIN
+    data_type: "DataType" = DataType.BEYOND_ITEM
+
+    url = "https://api.hakush.in/gi/data/zh/beyond/item_all.json"
+
+    @staticmethod
+    def get_game_name(icon: str) -> str:
+        return icon
+
+    @staticmethod
+    def game_name_map(game_name: str) -> dict[str, tuple[str, str]]:
+        return {
+            "icon": (game_name, "webp"),
+        }
+
+    @staticmethod
+    async def get_character_data(key: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        return {
+            "id": key,
+            "name": data["Name"],
+            "en_name": "",
+            "rank": data["Rank"],
+            "desc": data["Desc"],
+            "item_type": data["ItemType"],
+        }
+
+    async def parse_content(self, key: str, data: Dict[str, Any]) -> BaseWikiModel:
+        c_data = await self.get_character_data(key, data)
+        game_name = self.get_game_name(data["Icon"])
+        c = BeyondItem.model_validate(c_data)
+        # 图片
+        game_name_map = self.game_name_map(game_name)
+        for k, v in game_name_map.items():
+            if not v[0]:
+                continue
+            u = self.get_icon_url(v[0], v[1])
+            try:
+                p = await self._download_file(u)
+            except Exception as e:
+                logs.info(f"下载图片失败：{c} {e}")
                 continue
             i = IconAsset()
             j = IconAssetUrl(url=u, path=str(p))
