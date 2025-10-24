@@ -12,6 +12,7 @@ from .client import (
 )
 from .models.base import BaseWikiModel
 from .models.enums import Game, DataType
+from .models.genshin.beyond_item import BeyondItem
 from .models.genshin.character import Character
 from .models.genshin.other import Other
 from .models.genshin.weapon import Weapon
@@ -97,6 +98,22 @@ class _ArtifactAssets(_AssetsService[Artifact]):
     """理之冠"""
 
 
+class _BeyondItemAssets(_AssetsService[BeyondItem]):
+    game: "Game" = Game.GENSHIN
+    data_type: "DataType" = DataType.BEYOND_ITEM
+    data_model: "BaseWikiModel" = BeyondItem
+
+    icon = icon_getter("icon")
+    """物品图标"""
+
+    def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[NameCard]:
+        """获取目标"""
+        if isinstance(target, int):
+            if target > 270000:
+                target -= 10000
+        return super().get_target(target, second_target)
+
+
 class _NameCardAssets(_AssetsService[NameCard]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.NAMECARD
@@ -153,6 +170,8 @@ class AssetsService(BaseService.Dependence):
     """圣遗物"""
     namecard: _NameCardAssets = _NameCardAssets
     """名片"""
+    beyond_item: _BeyondItemAssets = _BeyondItemAssets
+    """千星奇域物品"""
     other: _OtherAssets = _OtherAssets
     """其他"""
 
