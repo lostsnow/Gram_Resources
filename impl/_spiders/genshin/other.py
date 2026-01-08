@@ -164,6 +164,9 @@ class GenshinRoleMaterialSpider(BaseSpider):
                 # 未上线角色
                 continue
             cid = avatar["id"]
+            if cid >= 10000900:
+                # 未上线角色
+                continue
             avatar_name = self.zh_lang[str(avatar["nameTextMapHash"])]
             if avatar_name not in ignore_name_list and avatar_name not in name_list:
                 name_list.append(avatar_name)
