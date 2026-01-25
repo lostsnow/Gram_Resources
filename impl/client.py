@@ -2,7 +2,7 @@ import asyncio
 import contextlib
 from pathlib import Path
 from ssl import SSLZeroReturnError
-from typing import Optional, List, Dict, TypeVar, Generic, Callable, Type
+from typing import Callable, Dict, Generic, List, Optional, Protocol, Type, TypeVar, overload
 
 from aiofiles import open as async_open
 from httpx import AsyncClient, HTTPError, Response
@@ -20,8 +20,15 @@ ASSETS_PATH = PROJECT_ROOT.joinpath("resources/assets")
 ASSETS_PATH.mkdir(exist_ok=True, parents=True)
 
 
-def _icon_getter(mode: str) -> Callable[["_AssetsService", StrOrInt, StrOrInt], Path]:
-    def wrapper(self: "_AssetsService", target: StrOrInt, second_target: StrOrInt = None) -> Path:
+class IconGetter(Protocol):
+    @overload
+    def __call__(self, target: StrOrInt, second_target: StrOrInt) -> Path: ...
+    @overload
+    def __call__(self, target: StrOrInt) -> Path: ...
+
+
+def _icon_getter(mode: str) -> IconGetter:
+    def wrapper(self: "_AssetsService[T]", target: StrOrInt, second_target: StrOrInt | None = None) -> Path:
         return self._get_icon(self.get_target(target, second_target), mode)
 
     return wrapper
