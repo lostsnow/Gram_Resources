@@ -17,7 +17,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          tree -H '.' > sitemap.html
           uv sync --all-extras
 
       - name: Restore Old Files
