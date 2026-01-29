@@ -8,16 +8,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source
-        uses: actions/checkout@master
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: astral-sh/setup-uv@v7
         with:
           python-version: 3.12
 
       - name: Install Dependencies
         run: |
-          python -m pip install uv
+          tree -H '.' > sitemap.html
           uv sync --all-extras
 
       - name: Restore Old Files
@@ -38,19 +38,22 @@ jobs:
           zip -q -r genshin.zip *
           mv genshin.zip ../../tmp/genshin.zip
           cd ../..
+          rm -rf data/raw/genshin/other/data/Text*.json
+          mv data tmp_data/data
 
-      - name: sync s3
-        uses: jakejarvis/s3-sync-action@master
+      - name: Generate sitemap html
+        run: |
+          cd tmp_data
+          tree -H '.' > sitemap.html
+          cd ..
+
+      - name: sync pages
+        uses: cloudflare/wrangler-action@v3
         with:
-          args: --acl public-read --follow-symlinks --delete
-        env:
-          AWS_S3_ENDPOINT: ${{ secrets.AWS_S3_ENDPOINT }}
-          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          SOURCE_DIR: 'data'
-          DEST_DIR: 'data'
+          apiToken: ${{ secrets.CLOUDFLARE_PAGES_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy tmp_data --project-name=paigram
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       - name: sync r2
         uses: jakejarvis/s3-sync-action@master
