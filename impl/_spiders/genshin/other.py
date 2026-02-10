@@ -31,7 +31,8 @@ TextMap/TextMapIT.json
 TextMap/TextMapJP.json
 TextMap/TextMapKR.json
 TextMap/TextMapPT.json
-TextMap/TextMapRU.json
+TextMap/TextMapRU_0.json
+TextMap/TextMapRU_1.json
 TextMap/TextMapTH_0.json
 TextMap/TextMapTH_1.json
 TextMap/TextMapTR.json
@@ -147,9 +148,14 @@ class GenshinRoleMaterialSpider(BaseSpider):
         self.data_weapon = {"status": 0, "data": {}}
 
     async def _download_file(self, url: str) -> str:
-        response = await RequestClient.request("GET", url)
-        c = fix_map(response.text.replace("\r\n", "\n")).encode("utf-8")
-        return await FileManager.save_raw_icon(url, self.game, self.data_type, self.data_source, c)
+        try:
+            response = await RequestClient.request("GET", url)
+            c = fix_map(response.text.replace("\r\n", "\n")).encode("utf-8")
+            return await FileManager.save_raw_icon(url, self.game, self.data_type, self.data_source, c)
+        except Exception as e:
+            traceback.print_exc()
+            logs.info(f"下载文件失败: {e}")
+            return ""
 
     async def download_data_file(self):
         tasks = [self._download_file(FILE_PATH.format(PATH=p.strip())) for p in DATA_FILES.split("\n")]
