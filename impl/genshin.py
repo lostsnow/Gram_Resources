@@ -106,24 +106,17 @@ class _BeyondItemAssets(_AssetsService[BeyondItem]):
     icon = icon_getter("icon")
     """物品图标"""
 
-    def get_target(self, target: StrOrInt, second_target: StrOrInt = None) -> Optional[NameCard]:
-        """获取目标"""
-        if isinstance(target, int):
-            if target > 270000:
-                target -= 10000
-        return super().get_target(target, second_target)
-
 
 class _NameCardAssets(_AssetsService[NameCard]):
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.NAMECARD
     data_model: "BaseWikiModel" = NameCard
-    DEFAULT_ID: int = 210242
+    DEFAULT_ID: int = 210208
     """默认ID"""
 
     icon = icon_getter("icon")
     """图标"""
-    navbar = icon_getter("navbar")
+    navbar = icon_getter("profile")
     """好友名片背景"""
     profile = icon_getter("profile")
     """个人资料名片背景"""

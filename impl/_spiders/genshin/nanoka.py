@@ -1,7 +1,9 @@
+import asyncio
+import traceback
 from enum import StrEnum
 from typing import Any, Dict, Optional
 
-from impl._spiders.nanoka import NanokaBaseSpider
+from impl._spiders.nanoka import NanokaBaseSpider, build_data_url, get_nanoka_version
 from impl.assets_utils.logger import logs
 from impl.models.base import BaseWikiModel, IconAsset, IconAssetUrl
 from impl.models.enums import DataType, Game
@@ -224,11 +226,29 @@ class NanokaArtifactSpider(NanokaBaseSpider):
 
 
 class NanokaBeyondItemSpider(NanokaBaseSpider):
-    """nanoka 美装（beyond）爬虫，数据源 ``<base>/gi/<ver>/zh/beyond/costume.json``。"""
+    """nanoka 美装（beyond）爬虫。
+
+    会同时拉取下面三个数据源并合并成一个 ``BeyondItem`` 集合：
+
+    - ``<base>/gi/<ver>/zh/beyond/costume.json``        角色装扮
+    - ``<base>/gi/<ver>/zh/beyond/costume_suit.json``   装扮套装
+    - ``<base>/gi/<ver>/zh/beyond/item.json``           装饰物 / 其它道具
+
+    为避免不同来源的主键冲突，``costume_suit`` 与 ``item`` 在合并后的 key
+    及最终模型 ``id`` 上加上来源前缀（``suit:`` / ``item:``）；``costume``
+    保持原始 key 以保证向后兼容。
+    """
 
     game: "Game" = Game.GENSHIN
     data_type: "DataType" = DataType.BEYOND_ITEM
-    data_path: str = "zh/beyond/costume.json"
+    #: 不再使用单一 data_path，统一由 ``data_paths`` 描述
+    data_path: str = ""
+    #: ``{来源标签: 相对路径}``，来源标签会作为分发解析逻辑的依据
+    data_paths: Dict[str, str] = {
+        "costume": "zh/beyond/costume.json",
+        "suit": "zh/beyond/costume_suit.json",
+        "item": "zh/beyond/item.json",
+    }
 
     #: nanoka 数据中 rank 字段为颜色字符串，转换为对应星级
     _RANK_MAP = {
@@ -243,23 +263,83 @@ class NanokaBeyondItemSpider(NanokaBaseSpider):
     def game_name_map(icon_name: str) -> Dict[str, tuple]:
         return {"icon": (icon_name, "webp")}
 
+    async def _resolve_data_url(self) -> str:  # pragma: no cover - 不再使用单源解析
+        raise RuntimeError(f"{self.__class__.__name__} 使用多数据源，请通过 data_paths 拉取数据")
+
+    async def _load_source(self) -> Optional[Dict[str, Dict[str, Any]]]:
+        """并行拉取三个数据源，合并为一个 dict。
+
+        合并后的 value 在原数据基础上额外注入 ``__source__`` 字段，
+        以便 :meth:`parse_content` 据此分发到不同的解析逻辑。
+        """
+        version = await get_nanoka_version(self.game_key)
+        if not version:
+            logs.info(f"{self.__class__.__name__} 无法获取 nanoka 数据版本号，停止爬取")
+            return None
+
+        async def _fetch(source: str, path: str) -> Dict[str, Any]:
+            url = build_data_url(self.game_key, version, path)
+            try:
+                response, _ = await self._request("GET", url)
+                payload = response.json()
+            except Exception as exc:
+                traceback.print_exc()
+                logs.info(f"{self.__class__.__name__} 请求 nanoka 数据失败 source={source} url={url}: {exc}")
+                return {}
+            if not isinstance(payload, dict):
+                logs.info(
+                    f"{self.__class__.__name__} 数据格式异常 source={source}，期望 dict，实际 {type(payload).__name__}"
+                )
+                return {}
+            return payload
+
+        sources = list(self.data_paths.items())
+        results = await asyncio.gather(*(_fetch(s, p) for s, p in sources))
+
+        merged: Dict[str, Dict[str, Any]] = {}
+        for (source, _path), payload in zip(sources, results):
+            for raw_key, raw_value in payload.items():
+                if not isinstance(raw_value, dict):
+                    continue
+                value = dict(raw_value)
+                value["__source__"] = source
+                merged_key = str(raw_key)
+                merged[merged_key] = value
+        return merged
+
     @classmethod
     def get_beyond_data(cls, key: str, data: Dict[str, Any]) -> Dict[str, Any]:
+        """将不同来源的原始数据统一映射为 ``BeyondItem`` 字段。"""
+        source = data.get("__source__", "costume")
         rank_value = data.get("rank")
-        rank = cls._RANK_MAP.get(rank_value, 3) if isinstance(rank_value, str) else int(rank_value or 3)
-        # nanoka costume.json 没有 desc/item_type，组合 body/color 作为描述，
-        # 使用 slot 作为物品类型，最大限度保留信息
-        body = "/".join(data.get("body") or [])
-        color = "/".join(data.get("color") or [])
-        desc_parts = [p for p in (body, color) if p]
-        slot_list = data.get("slot") or []
-        item_type = slot_list[0] if slot_list else ""
+        if isinstance(rank_value, str):
+            rank = cls._RANK_MAP.get(rank_value, 3)
+        else:
+            try:
+                rank = int(rank_value) if rank_value is not None else 3
+            except (TypeError, ValueError):
+                rank = 3
+
+        if source == "costume" or source == "suit":
+            # nanoka costume.json 没有 desc/item_type，组合 body/color 作为描述，
+            # 使用 slot 作为物品类型，最大限度保留信息
+            body = "/".join(data.get("body") or [])
+            color = "/".join(data.get("color") or [])
+            desc_parts = [p for p in (body, color) if p]
+            slot_list = data.get("slot") or []
+            item_type = slot_list[0] if slot_list else "suit"
+            desc = " / ".join(desc_parts)
+        else:  # source == "item"
+            # 通用装饰物：优先使用原 desc / item_type，缺失时回退到 type
+            desc = data.get("desc") or data.get("description") or ""
+            item_type = data.get("item_type") or data.get("type") or "item"
+
         return {
             "id": key,
-            "name": data.get("name", ""),
-            "en_name": "",
+            "name": data.get("name") or data.get("zh") or data.get("en") or "",
+            "en_name": data.get("en", ""),
             "rank": rank,
-            "desc": " / ".join(desc_parts),
+            "desc": desc,
             "item_type": item_type,
         }
 
