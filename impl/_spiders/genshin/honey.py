@@ -3,7 +3,6 @@ import itertools
 import re
 import traceback
 from asyncio import Queue
-from multiprocessing import Value
 from typing import List, Dict, Any, Optional, Union, AsyncIterator, Tuple
 
 import ujson
@@ -130,27 +129,64 @@ class HoneyWeaponSpider(BaseSpider):
         """
         urls = self.scrape_urls()
         queue: Queue[Union[str, Tuple[str, URL]]] = Queue()  # 存放 Model 的队列
-        signal = Value("i", len(urls))  # 一个用于异步任务同步的信号，初始值为存放所需要爬取的页面数
+        remaining = len(urls)  # 未完成的任务计数，使用 list 包装以便闭包内修改
+        counter = [remaining]
+        done_event = asyncio.Event()
 
         async def task(page: URL):
             """包装的爬虫任务"""
-            response, _ = await self._request("GET", page, save=False)
-            # 从页面中获取对应的 chaos data (未处理的json格式字符串)
-            chaos_data = re.findall(r"sortable_data\.push\((.*?)\);\s*sortable_cur_page", response.text)[0]
-            json_data = ujson.loads(chaos_data)  # 转为 json
-            for data in json_data:  # 遍历 json
-                data_name = re.findall(r">(.*)<", data[1])[0].strip()  # 获取 Model 的名称
-                if with_url:  # 如果需要返回对应的 url
-                    data_url = HONEY_HOST.join(re.findall(r"\"(.*?)\"", data[0])[0])
-                    await queue.put((data_name, data_url))
-                else:
-                    await queue.put(data_name)
-            signal.value = signal.value - 1  # 信号量减少 1 ，说明该爬虫任务已经完成
+            try:
+                response, _ = await self._request("GET", page, save=False)
+                # 从页面中获取对应的 chaos data (未处理的json格式字符串)
+                match = re.findall(r"sortable_data\.push\((.*?)\);\s*sortable_cur_page", response.text)
+                if not match:
+                    logs.info("honey 名称列表页未匹配到数据 url[%s]", page)
+                    return
+                chaos_data = match[0]
+                json_data = ujson.loads(chaos_data)  # 转为 json
+                for data in json_data:  # 遍历 json
+                    try:
+                        data_name = re.findall(r">(.*)<", data[1])[0].strip()  # 获取 Model 的名称
+                    except (IndexError, TypeError) as exc:
+                        logs.info("honey 解析名称失败 url[%s] %s", page, exc)
+                        continue
+                    if with_url:  # 如果需要返回对应的 url
+                        try:
+                            data_url = HONEY_HOST.join(re.findall(r"\"(.*?)\"", data[0])[0])
+                        except IndexError as exc:
+                            logs.info("honey 解析详情 url 失败 url[%s] %s", page, exc)
+                            continue
+                        await queue.put((data_name, data_url))
+                    else:
+                        await queue.put(data_name)
+            except Exception as exc:  # pylint: disable=W0703
+                logs.info("honey 名称列表任务异常 url[%s] %s", page, exc)
+            finally:
+                counter[0] -= 1
+                if counter[0] <= 0:
+                    done_event.set()
 
         for url in urls:  # 遍历需要爬出的页面
             asyncio.create_task(task(url))  # 添加爬虫任务
-        while signal.value > 0 or not queue.empty():  # 当还有未完成的爬虫任务或存放数据的队列不为空时
-            yield await queue.get()  # 取出并返回一个存放的 Model
+
+        # 当还有未完成的爬虫任务或存放数据的队列不为空时，持续 yield
+        while counter[0] > 0 or not queue.empty():
+            if queue.empty():
+                # 队列暂时为空，等待新数据到来或全部任务完成
+                getter = asyncio.create_task(queue.get())
+                waiter = asyncio.create_task(done_event.wait())
+                done, pending = await asyncio.wait({getter, waiter}, return_when=asyncio.FIRST_COMPLETED)
+                if getter in done:
+                    waiter.cancel()
+                    yield getter.result()
+                else:
+                    getter.cancel()
+                    # 所有任务都完成了，把队列里残留的数据取空
+                    while not queue.empty():
+                        yield queue.get_nowait()
+                    break
+            else:
+                yield queue.get_nowait()
 
     async def get_name_list(self, *, with_url: bool = False) -> List[Union[str, Tuple[str, URL]]]:
         # 重写此函数的目的是名字去重，例如单手剑页面中有三个 “「一心传」名刀”
@@ -169,7 +205,8 @@ class HoneyWeaponSpider(BaseSpider):
             返回能爬到的所有的 WikiModel 所组成的 List
         """
         queue: Queue["BaseWikiModel"] = Queue()  # 存放 Model 的队列
-        signal = Value("i", 0)  # 一个用于异步任务同步的信号
+        counter = [0]  # 任务计数，使用 list 包装以便闭包内修改
+        done_event = asyncio.Event()
 
         async def task(u):
             # 包装的爬虫任务
@@ -180,14 +217,32 @@ class HoneyWeaponSpider(BaseSpider):
             except Exception as exc:  # pylint: disable=W0703
                 logs.info("爬取数据出现异常 url[%s] %s", u, str(exc))
             finally:
-                signal.value -= 1  # 信号量减少 1 ，说明该爬虫任务已经完成
+                counter[0] -= 1
+                if counter[0] <= 0:
+                    done_event.set()
 
         for _, url in await self.get_name_list(with_url=True):  # 遍历爬取所有需要爬取的页面
-            signal.value += 1  # 信号量增加 1 ，说明有一个爬虫任务被添加
+            counter[0] += 1  # 任务计数 +1
             asyncio.create_task(task(url))  # 创建一个爬虫任务
 
-        while signal.value > 0 or not queue.empty():  # 当还有未完成的爬虫任务或存放数据的队列不为空时
-            yield await queue.get()  # 取出并返回一个存放的 Model
+        if counter[0] == 0:
+            return
+
+        while counter[0] > 0 or not queue.empty():
+            if queue.empty():
+                getter = asyncio.create_task(queue.get())
+                waiter = asyncio.create_task(done_event.wait())
+                done, _ = await asyncio.wait({getter, waiter}, return_when=asyncio.FIRST_COMPLETED)
+                if getter in done:
+                    waiter.cancel()
+                    yield getter.result()
+                else:
+                    getter.cancel()
+                    while not queue.empty():
+                        yield queue.get_nowait()
+                    break
+            else:
+                yield queue.get_nowait()
 
     async def get_full_data(self) -> List["BaseWikiModel"]:
         """获取全部数据的 Model
