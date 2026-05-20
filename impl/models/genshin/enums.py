@@ -132,6 +132,7 @@ class Association(StrEnum):
     Natlan = "纳塔"
     Omni_Scourge = "虚渊"
     Nodkrai = "挪德卡莱"
+    Hvision = "魔女会"
 
     @classmethod
     def convert(cls, string: str) -> Optional[Self]:
